@@ -88,7 +88,7 @@ def register():
             session['reg_role'] = role
             
             # --- PENGIRIMAN VIA GOOGLE API (JALUR RAHASIA) ---
-            WEBHOOK_URL = "PASTE_URL_GOOGLE_SCRIPT_KAMU_DI_SINI"
+            WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby3GBJrsIE7HJ_ZV_9xoSUtFbZ08U26gZP2rG86I13TwDE_ZgWTWY-8hqCZTRSkGJw0sg/exec"
             payload = {
                 "to": email,
                 "subject": "Kode OTP Registrasi Smart Door",
