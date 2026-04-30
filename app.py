@@ -2,8 +2,8 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import mysql.connector
 from functools import wraps
 import random
-import smtplib
-from email.mime.text import MIMEText
+import urllib.request
+import json
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
@@ -87,23 +87,27 @@ def register():
             session['reg_email'] = email
             session['reg_role'] = role
             
-            # Kirim Email
-            msg = MIMEText(f"Halo!\n\nKode rahasia (OTP) pendaftaran Smart Door Anda adalah: {otp}\n\nJangan berikan kode ini ke siapapun.")
-            msg['Subject'] = 'Kode OTP Registrasi Smart Door'
-            msg['From'] = EMAIL_SENDER
-            msg['To'] = email
-            
+            # --- PENGIRIMAN VIA GOOGLE API (JALUR RAHASIA) ---
+            WEBHOOK_URL = "PASTE_URL_GOOGLE_SCRIPT_KAMU_DI_SINI"
+            payload = {
+                "to": email,
+                "subject": "Kode OTP Registrasi Smart Door",
+                "text": f"Halo!\n\nKode rahasia (OTP) pendaftaran Smart Door Anda adalah: {otp}\n\nJangan berikan kode ini ke siapapun."
+            }
+
+            req = urllib.request.Request(
+                WEBHOOK_URL,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+
             try:
-                # Pakai port 587 dan pasang batas waktu 10 detik agar tidak bikin web nge-hang
-                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
-                server.starttls() # Mulai proses enkripsi (syarat wajib port 587)
-                server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-                server.send_message(msg)
-                server.quit()
+                urllib.request.urlopen(req, timeout=10) # Tembak API Google
                 return render_template("register.html", step="verify", email=email)
             except Exception as e:
-                return render_template("register.html", step="email", error=f"Server Cloud memblokir email. Pesan error: {e}")
-                
+                return render_template("register.html", step="email", error=f"Gagal via API: {e}")
+        
         # TAHAP 2: VERIFIKASI OTP & BUAT AKUN
         elif action == "verify_otp":
             user_otp = request.form.get("otp")
