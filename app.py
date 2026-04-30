@@ -94,13 +94,15 @@ def register():
             msg['To'] = email
             
             try:
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                # Pakai port 587 dan pasang batas waktu 10 detik agar tidak bikin web nge-hang
+                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+                server.starttls() # Mulai proses enkripsi (syarat wajib port 587)
                 server.login(EMAIL_SENDER, EMAIL_PASSWORD)
                 server.send_message(msg)
                 server.quit()
                 return render_template("register.html", step="verify", email=email)
             except Exception as e:
-                return render_template("register.html", step="email", error=f"Gagal mengirim email: {e}")
+                return render_template("register.html", step="email", error=f"Server Cloud memblokir email. Pesan error: {e}")
                 
         # TAHAP 2: VERIFIKASI OTP & BUAT AKUN
         elif action == "verify_otp":
