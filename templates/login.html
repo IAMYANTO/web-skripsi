@@ -14,6 +14,7 @@
         <div class="card-body p-5 text-center">
             <h3 class="mb-4 fw-bold text-dark">ADMIN LOGIN</h3>
             {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+            <p class="mb-4"><a href="/register" class="text-decoration-none small fw-bold text-primary">Daftar di sini</a></p>
             <form method="POST">
                 <input type="text" name="username" class="form-control mb-3" placeholder="Username" required>
                 <input type="password" name="password" class="form-control mb-4" placeholder="Password" required>
