@@ -263,7 +263,8 @@ def export_csv():
     conn.close()
 
     output = io.StringIO()
-    writer = csv.writer(output)
+    output.write('\ufeff') # KODE SAKTI 1: UTF-8 BOM agar Excel paham format teksnya
+    writer = csv.writer(output, delimiter=';') # KODE SAKTI 2: Pakai titik koma khusus Excel Indonesia
     writer.writerow(['Pintu', 'Waktu', 'Nama', 'Metode', 'Status']) # Header Kolom Excel
     
     for log in logs:
