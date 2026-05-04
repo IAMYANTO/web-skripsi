@@ -6,9 +6,11 @@ import urllib.request
 import json
 import csv
 import io
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
+app.permanent_session_lifetime = timedelta(minutes=3) # Pilar 2: Auto-Logout setelah 15 menit
 
 # --- KONFIGURASI EMAIL BOT ---
 EMAIL_SENDER = "smartdoor.unair@gmail.com" # <--- GANTI JIKA PERLU
@@ -272,6 +274,55 @@ def export_csv():
 
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=Laporan_Akses_SmartDoor.csv"})
+
+# ==========================================
+# 6. PROFIL & GANTI PASSWORD (PILAR 1)
+# ==========================================
+@app.route("/profile")
+@login_required
+def profile():
+    return render_template("profile.html", username=session.get('admin_user'), role=session.get('role'), email=session.get('reg_email'))
+
+@app.route("/forgot_password", methods=["POST"])
+@login_required
+def forgot_password():
+    # Mengirim OTP untuk ganti password (mirip saat daftar)
+    email = request.json.get("email")
+    otp = str(random.randint(100000, 999999))
+    session['reset_otp'] = otp
+    
+    # Gunakan jalur email yang sudah berhasil (Port 587)
+    try:
+        msg = MIMEText(f"Kode OTP untuk mengganti password Smart Door Anda adalah: {otp}")
+        msg['Subject'] = 'Reset Password Smart Door'
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = email
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return jsonify({"message": "OTP Terkirim"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/update_password", methods=["POST"])
+@login_required
+def update_password():
+    data = request.json
+    if data.get("otp") == session.get("reset_otp"):
+        new_password = data.get("new_password")
+        username = session.get('admin_user')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE admins SET password = %s WHERE username = %s", (new_password, username))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        session.pop('reset_otp', None)
+        return jsonify({"message": "Sukses"}), 200
+    return jsonify({"error": "OTP Salah"}), 400
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
