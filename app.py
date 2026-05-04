@@ -51,14 +51,13 @@ def login():
         if admin:
             # BLOKIR JIKA STATUS MASIH PENDING
             if admin.get('status') == 'PENDING':
-                return render_template("login.html", error="Akun tidak ditemukan atau Password salah! Silakan daftar akun baru.")
-                
+                return render_template("login.html", error="Akun PENDING! Silakan tap Master Card lalu tap kartu Anda di alat untuk aktivasi.")
             session['logged_in'] = True
             session['admin_user'] = admin['username']
             session['role'] = admin['role']
             return redirect(url_for('dashboard'))
         else:
-            return render_template("login.html", error="Username atau Password Salah!")
+            return render_template("login.html", error="Akun tidak ditemukan atau Password salah! Silakan daftar akun baru.")
             
     return render_template("login.html")
 
