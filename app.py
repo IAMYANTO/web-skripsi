@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response
 import mysql.connector
 from functools import wraps
 import random
 import urllib.request
 import json
+import csv
+import io
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
@@ -218,6 +220,57 @@ def log_access():
         conn.close()
         return jsonify({"message": "Log tersimpan!"}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# 5. API LIVE REFRESH & EXPORT EXCEL
+# ==========================================
+@app.route("/api/logs")
+@login_required
+def api_logs():
+    role = session.get('role', 'admin')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    if role == 'admin':
+        cursor.execute("SELECT * FROM access_logs ORDER BY timestamp DESC LIMIT 50")
+    else:
+        cursor.execute("SELECT * FROM access_logs WHERE door_id = %s ORDER BY timestamp DESC LIMIT 50", (role,))
+    
+    logs = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    # Ubah format waktu agar bisa dibaca JSON
+    for log in logs:
+        log['timestamp'] = str(log['timestamp'])
+        
+    return jsonify(logs)
+
+@app.route("/export_csv")
+@login_required
+def export_csv():
+    role = session.get('role', 'admin')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    if role == 'admin':
+        cursor.execute("SELECT door_id, timestamp, name, method, status FROM access_logs ORDER BY timestamp DESC")
+    else:
+        cursor.execute("SELECT door_id, timestamp, name, method, status FROM access_logs WHERE door_id = %s ORDER BY timestamp DESC", (role,))
+    
+    logs = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Pintu', 'Waktu', 'Nama', 'Metode', 'Status']) # Header Kolom Excel
+    
+    for log in logs:
+        writer.writerow([log['door_id'], log['timestamp'], log['name'], log['method'], log['status']])
+
+    output.seek(0)
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=Laporan_Akses_SmartDoor.csv"})
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
