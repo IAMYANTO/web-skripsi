@@ -10,7 +10,16 @@
     /* Pilar 3: Estetika Dark Mode */
     :root { --bg: #f4f6f9; --card: #ffffff; --text: #333; }
     [data-theme="dark"] { --bg: #1a1a1a; --card: #2d2d2d; --text: #f4f4f4; }
-    
+
+    /* Penyesuaian khusus elemen Bootstrap saat Dark Mode */
+    [data-theme="dark"] .text-muted { color: #aeb4b9 !important; }
+    [data-theme="dark"] .text-dark { color: #f4f4f4 !important; }
+    [data-theme="dark"] .bg-white { background-color: var(--card) !important; }
+    [data-theme="dark"] .card-header { background-color: var(--card) !important; border-bottom: 1px solid #444 !important; }
+    [data-theme="dark"] .table-light th { background-color: #333 !important; color: #fff !important; border-color: #444; }
+    [data-theme="dark"] td { border-color: #444; }
+    [data-theme="dark"] .table-hover>tbody>tr:hover>* { color: var(--text); background-color: #3b3b3b !important; }
+        
     body { background-color: var(--bg); color: var(--text); transition: 0.3s; }
     .card { background-color: var(--card) !important; color: var(--text); border-radius: 15px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .table { color: var(--text); }
