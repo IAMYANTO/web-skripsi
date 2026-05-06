@@ -108,7 +108,6 @@ function bukaPintu(doorId, actionType) {
         }).then(response => { if(response.ok) location.reload(); });
     }
 }
-    
 
 // --- FITUR LIVE REFRESH TABEL (AJAX) ---
 function fetchLogs() {
@@ -141,8 +140,7 @@ function fetchLogs() {
         });
 }
 
-<script>
-// Pilar 3: Logika Dark Mode
+// --- PILAR 3: LOGIKA DARK MODE ---
 function toggleTheme() {
     const current = document.documentElement.getAttribute("data-theme");
     const target = current === "dark" ? "light" : "dark";
@@ -150,9 +148,9 @@ function toggleTheme() {
     localStorage.setItem("theme", target);
     document.getElementById("theme-icon").className = target === "dark" ? "fa-solid fa-sun" : "fa-solid fa-moon";
 }
+
 // Load theme saat buka web
 if(localStorage.getItem("theme") === "dark") toggleTheme();
-</script>
 
 // Jalankan pengambilan data pertama kali, lalu ulangi setiap 2 detik
 fetchLogs();
