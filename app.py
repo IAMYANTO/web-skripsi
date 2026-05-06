@@ -7,6 +7,7 @@ import json
 import csv
 import io
 import smtplib
+import datetime
 from email.mime.text import MIMEText
 from datetime import timedelta
 
@@ -43,30 +44,61 @@ def login_required(f):
 # ==========================================
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    import datetime
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
         
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM admins WHERE username = %s AND password = %s", (username, password))
+        # Cari user berdasarkan username dulu (jangan cek password dulu)
+        cursor.execute("SELECT * FROM admins WHERE username = %s", (username,))
         admin = cursor.fetchone()
-        cursor.close()
-        conn.close()
         
         if admin:
-            # BLOKIR JIKA STATUS MASIH PENDING
-            if admin.get('status') == 'PENDING':
-                return render_template("login.html", error="Akun PENDING! Silakan tap Master Card lalu tap kartu Anda di alat untuk aktivasi.")
-            session['logged_in'] = True
-            session['admin_user'] = admin['username']
-            session['role'] = admin['role']
-            return redirect(url_for('dashboard'))
+            now = datetime.datetime.now()
+            
+            # CEK BRUTE-FORCE: Apakah akun sedang terkunci?
+            if admin['login_attempts'] >= 3:
+                if admin['last_attempt']:
+                    time_diff = (now - admin['last_attempt']).total_seconds()
+                    if time_diff < 300: # 300 detik = 5 Menit
+                        sisa_waktu = int((300 - time_diff) / 60) + 1
+                        return render_template("login.html", error=f"Akun terkunci sementara! Terlalu banyak percobaan salah. Coba lagi dalam {sisa_waktu} menit.")
+                    else:
+                        # Waktu hukuman habis, reset hitungan
+                        cursor.execute("UPDATE admins SET login_attempts = 0 WHERE username = %s", (username,))
+                        conn.commit()
+
+            # CEK PASSWORD:
+            if admin['password'] == password:
+                # Login Sukses: Reset hitungan error
+                cursor.execute("UPDATE admins SET login_attempts = 0 WHERE username = %s", (username,))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                
+                if admin.get('status') == 'PENDING':
+                    return render_template("login.html", error="Akun PENDING! Silakan tap Master Card lalu tap kartu Anda di alat untuk aktivasi.")
+                    
+                session.permanent = True # Mengaktifkan Auto-Logout 15 Menit
+                session['logged_in'] = True
+                session['admin_user'] = admin['username']
+                session['role'] = admin['role']
+                return redirect(url_for('dashboard'))
+            else:
+                # Password Salah: Tambah hitungan error & catat waktunya
+                cursor.execute("UPDATE admins SET login_attempts = login_attempts + 1, last_attempt = %s WHERE username = %s", (now, username))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return render_template("login.html", error="Username atau Password Salah!")
         else:
+            cursor.close()
+            conn.close()
             return render_template("login.html", error="Akun tidak ditemukan atau Password salah! Silakan daftar akun baru.")
             
     return render_template("login.html")
-
 @app.route("/logout")
 def logout():
     session.clear()
