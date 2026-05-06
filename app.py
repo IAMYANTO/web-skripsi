@@ -6,6 +6,8 @@ import urllib.request
 import json
 import csv
 import io
+import smtplib
+from email.mime.text import MIMEText
 from datetime import timedelta
 
 app = Flask(__name__)
@@ -281,8 +283,17 @@ def export_csv():
 @app.route("/profile")
 @login_required
 def profile():
-    return render_template("profile.html", username=session.get('admin_user'), role=session.get('role'), email=session.get('reg_email'))
-
+    username = session.get('admin_user')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT email FROM admins WHERE username = %s", (username,))
+    user_data = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    
+    email = user_data['email'] if user_data else ""
+    return render_template("profile.html", username=username, role=session.get('role'), email=email)
+    
 @app.route("/forgot_password", methods=["POST"])
 @login_required
 def forgot_password():
