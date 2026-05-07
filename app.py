@@ -367,5 +367,39 @@ def update_password():
         return jsonify({"message": "Sukses"}), 200
     return jsonify({"error": "OTP Salah"}), 400
 
+# ==========================================
+# 7. MANAJEMEN PEGAWAI (ADMIN ONLY)
+# ==========================================
+@app.route("/manage_users")
+@login_required
+def manage_users():
+    # Fitur ini sangat rahasia, cuma Admin Utama yang boleh buka!
+    if session.get('role') != 'admin':
+        return "Akses Ditolak! Halaman ini khusus Admin Utama.", 403
+        
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    # Kita ambil data pegawai (tidak perlu ambil Face Encoding yang panjang itu)
+    cursor.execute("SELECT id, nama, rfid_uid, allowed_door FROM users ORDER BY id DESC")
+    users_data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return render_template("users.html", username=session.get('admin_user'), role=session.get('role'), users=users_data)
+
+@app.route("/delete_user/<int:user_id>", methods=["POST"])
+@login_required
+def delete_user(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"message": "Pegawai berhasil dihapus!"}), 200
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
