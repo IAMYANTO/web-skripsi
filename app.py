@@ -185,13 +185,18 @@ def dashboard():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
+    # Set timezone database ke +07:00 (WIB)
+    cursor.execute("SET time_zone = '+07:00'")
+    
     if role == 'admin':
-        cursor.execute("SELECT * FROM access_logs ORDER BY timestamp DESC LIMIT 50")
+        # QUERY SAKTI ADMIN: Ambil log HARI INI saja
+        cursor.execute("SELECT * FROM access_logs WHERE DATE(timestamp) = CURDATE() ORDER BY timestamp DESC LIMIT 50")
         logs = cursor.fetchall()
         cursor.execute("SELECT door_id, is_open FROM remote_control")
         bypass_data = cursor.fetchall()
     else:
-        cursor.execute("SELECT * FROM access_logs WHERE door_id = %s ORDER BY timestamp DESC LIMIT 50", (role,))
+        # QUERY SAKTI USER/DOOR: Ambil log HARI INI sesuai akses pintunya
+        cursor.execute("SELECT * FROM access_logs WHERE door_id = %s AND DATE(timestamp) = CURDATE() ORDER BY timestamp DESC LIMIT 50", (role,))
         logs = cursor.fetchall()
         cursor.execute("SELECT door_id, is_open FROM remote_control WHERE door_id = %s", (role,))
         bypass_data = cursor.fetchall()
@@ -199,27 +204,8 @@ def dashboard():
     bypass_status = {item['door_id']: item['is_open'] for item in bypass_data}
     cursor.close()
     conn.close()
+    
     return render_template("index.html", logs=logs, bypass_status=bypass_status, role=role, username=session.get('admin_user'))
-
-def index():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    # QUERY SAKTI: Hanya ambil data yang tanggalnya sama dengan HARI INI
-    # Kita gunakan fungsi CURDATE() milik MySQL
-    query = """
-        SELECT * FROM access_logs 
-        WHERE DATE(timestamp) = CURDATE() 
-        ORDER BY timestamp DESC
-    """
-    cursor.execute(query)
-    logs_data = cursor.fetchall()
-    
-    cursor.close()
-    conn.close()
-    
-    return render_template("index.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
-
 
 # ==========================================
 # 4. API & KONTROL PINTU
