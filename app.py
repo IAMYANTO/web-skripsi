@@ -201,6 +201,25 @@ def dashboard():
     conn.close()
     return render_template("index.html", logs=logs, bypass_status=bypass_status, role=role, username=session.get('admin_user'))
 
+def index():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    # QUERY SAKTI: Hanya ambil data yang tanggalnya sama dengan HARI INI
+    # Kita gunakan fungsi CURDATE() milik MySQL
+    query = """
+        SELECT * FROM access_logs 
+        WHERE DATE(timestamp) = CURDATE() 
+        ORDER BY timestamp DESC
+    """
+    cursor.execute(query)
+    logs_data = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    
+    return render_template("index.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
+
 
 # ==========================================
 # 4. API & KONTROL PINTU
