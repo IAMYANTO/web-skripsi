@@ -275,9 +275,11 @@ def api_logs():
     cursor.execute("SET time_zone = '+07:00'")
     
     if role == 'admin':
-        cursor.execute("SELECT * FROM access_logs ORDER BY timestamp DESC LIMIT 50")
+        # Tambahkan DATE(timestamp) = CURDATE() di API-nya
+        cursor.execute("SELECT * FROM access_logs WHERE DATE(timestamp) = CURDATE() ORDER BY timestamp DESC LIMIT 50")
     else:
-        cursor.execute("SELECT * FROM access_logs WHERE door_id = %s ORDER BY timestamp DESC LIMIT 50", (role,))
+        # Tambahkan DATE(timestamp) = CURDATE() di API-nya
+        cursor.execute("SELECT * FROM access_logs WHERE door_id = %s AND DATE(timestamp) = CURDATE() ORDER BY timestamp DESC LIMIT 50", (role,))
     
     logs = cursor.fetchall()
     cursor.close()
