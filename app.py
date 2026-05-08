@@ -401,5 +401,21 @@ def delete_user(user_id):
     conn.close()
     return jsonify({"message": "Pegawai berhasil dihapus!"}), 200
 
+# ==========================================
+# 8. RIWAYAT AKSES (LOGS)
+# ==========================================
+@app.route("/logs")
+@login_required
+def view_logs():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    # Ambil 100 riwayat terbaru
+    cursor.execute("SELECT * FROM access_logs ORDER BY timestamp DESC LIMIT 100")
+    logs_data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return render_template("logs.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
