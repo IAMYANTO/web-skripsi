@@ -285,6 +285,8 @@ def api_logs():
     role = session.get('role', 'admin')
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
+    # Set timezone database ke +07:00 (WIB)
+    cursor.execute("SET time_zone = '+07:00'")
     
     if role == 'admin':
         cursor.execute("SELECT * FROM access_logs ORDER BY timestamp DESC LIMIT 50")
