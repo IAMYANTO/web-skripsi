@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riwayat Akses - Smart Door</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg: #f4f6f9; --card: #ffffff; --text: #333; }
+        [data-theme="dark"] { --bg: #1a1a1a; --card: #2d2d2d; --text: #f4f4f4; }
+        body { background-color: var(--bg); color: var(--text); transition: 0.3s; }
+        .card { background-color: var(--card) !important; border-radius: 15px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .table { color: var(--text); }
+        .status-granted { color: #28a745; font-weight: bold; }
+        .status-denied { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-11">
+            <a href="/" class="btn btn-sm btn-secondary mb-3"><i class="fa-solid fa-arrow-left me-2"></i>Kembali ke Dashboard</a>
+            
+            <div class="card p-4">
+                <h4 class="fw-bold mb-4"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i>Riwayat Akses Masuk</h4>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Waktu</th>
+                                <th>Nama / Identitas</th>
+                                <th>Metode</th>
+                                <th>Pintu</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="small text-muted">{{ log.timestamp }}</td>
+                                <td>
+                                    <span class="fw-bold">{{ log.name }}</span><br>
+                                    <small class="text-muted">{{ log.card_uid if log.card_uid else '-' }}</small>
+                                </td>
+                                <td>
+                                    {% if log.method == 'FACE+RFID' %}
+                                        <span class="badge bg-info text-dark">Wajah + Kartu</span>
+                                    {% elif log.method == 'BYPASS' %}
+                                        <span class="badge bg-warning text-dark">Web Bypass</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.method }}</span>
+                                    {% endif %}
+                                </td>
+                                <td><span class="badge bg-dark">{{ log.door_id | upper }}</span></td>
+                                <td>
+                                    {% if log.status == 'ACCESS_GRANTED' %}
+                                        <span class="status-granted"><i class="fa-solid fa-circle-check me-1"></i>DITERIMA</span>
+                                    {% else %}
+                                        <span class="status-denied"><i class="fa-solid fa-circle-xmark me-1"></i>DITOLAK</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">Belum ada aktivitas terekam.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+if(localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+}
+</script>
+</body>
+</html>
