@@ -377,62 +377,55 @@ def update_password():
     return jsonify({"error": "OTP Salah"}), 400
 
 # ==========================================
-# 7. MANAJEMEN PEGAWAI (ADMIN ONLY)
+# 7. MANAJEMEN PEGAWAI & AKUN WEB (ADMIN ONLY)
 # ==========================================
 @app.route("/manage_users")
 @login_required
 def manage_users():
-    # Fitur ini sangat rahasia, cuma Admin Utama yang boleh buka!
     if session.get('role') != 'admin':
         return "Akses Ditolak! Halaman ini khusus Admin Utama.", 403
         
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    # Kita ambil data pegawai (tidak perlu ambil Face Encoding yang panjang itu)
+    
+    # 1. Ambil data Pegawai Fisik (Pintu)
     cursor.execute("SELECT id, nama, rfid_uid, allowed_door FROM users ORDER BY id DESC")
     users_data = cursor.fetchall()
+    
+    # 2. Ambil data Akun Web (Login Dashboard) - KECUALI admin utama yang sedang login
+    cursor.execute("SELECT id, username, email, role, status, rfid_uid FROM admins WHERE username != %s ORDER BY id DESC", (session.get('admin_user'),))
+    admins_data = cursor.fetchall()
+    
     cursor.close()
     conn.close()
     
-    return render_template("users.html", username=session.get('admin_user'), role=session.get('role'), users=users_data)
+    return render_template("users.html", username=session.get('admin_user'), role=session.get('role'), users=users_data, admins=admins_data)
 
 @app.route("/delete_user/<int:user_id>", methods=["POST"])
 @login_required
 def delete_user(user_id):
     if session.get('role') != 'admin':
         return jsonify({"error": "Unauthorized"}), 403
-        
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    # 1. Ambil data lengkap user sebelum dihapus (Nama & RFID-nya)
-    cursor.execute("SELECT nama, rfid_uid FROM users WHERE id = %s", (user_id,))
-    target = cursor.fetchone()
-    
-    if target:
-        nama_fisik = target['nama']
-        rfid_fisik = target['rfid_uid']
-        
-        # 2. HAPUS DI TABEL USERS (Akses Pintu)
-        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-        
-        # 3. HAPUS DI TABEL ADMINS (Akses Login Web)
-        # Kita cari berdasarkan Nama ATAU Username ATAU RFID_UID agar pasti kena!
-        query_admin = """
-            DELETE FROM admins 
-            WHERE username = %s 
-            OR username = %s 
-            OR (rfid_uid = %s AND rfid_uid IS NOT NULL AND rfid_uid != '')
-        """
-        # Kita hajar pakai nama "Bagas" dan "punyabagas" sekaligus
-        cursor.execute(query_admin, (nama_fisik, nama_fisik.lower(), rfid_fisik))
-        
-        conn.commit()
-        print(f"[LOG] Berhasil memusnahkan {nama_fisik} dan akun terkait dari semua tabel.")
-    
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({"message": "User dan Akun Login berhasil dihapus total!"}), 200
+    return jsonify({"message": "Akses Pintu (Wajah+RFID) dihapus!"}), 200
+
+@app.route("/delete_admin/<int:admin_id>", methods=["POST"])
+@login_required
+def delete_admin(admin_id):
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM admins WHERE id = %s", (admin_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"message": "Akun Login Web berhasil dihapus!"}), 200
 
 # ==========================================
 # 8. RIWAYAT AKSES (LOGS)
