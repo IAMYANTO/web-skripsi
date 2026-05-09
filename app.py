@@ -254,13 +254,24 @@ def log_access():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        sql = "INSERT INTO access_logs (door_id, name, card_uid, method, status) VALUES (%s, %s, %s, %s, %s)"
+        
+        # KODE SAKTI PENANGKAL KUTU CINDERELLA
+        # Paksa database pakai Waktu Indonesia Barat (WIB)
+        cursor.execute("SET time_zone = '+07:00'")
+        
+        # Tambahkan NOW() untuk memaksa waktu di-generate sesuai timezone WIB
+        sql = "INSERT INTO access_logs (door_id, name, card_uid, method, status, timestamp) VALUES (%s, %s, %s, %s, %s, NOW())"
+        
         cursor.execute(sql, (data.get("door_id"), data.get("name"), data.get("card_uid"), data.get("method"), data.get("status")))
         conn.commit()
+        
         cursor.close()
         conn.close()
-        return jsonify({"message": "Log tersimpan!"}), 200
-    except Exception as e: return jsonify({"error": str(e)}), 500
+        return jsonify({"message": "Log tersimpan akurat pakai jam WIB!"}), 200
+        
+    except Exception as e: 
+        print(f"[ERROR SIMPAN LOG] {e}")
+        return jsonify({"error": str(e)}), 500
 
 # ==========================================
 # 5. API LIVE REFRESH & EXPORT EXCEL
