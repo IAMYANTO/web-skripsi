@@ -403,12 +403,25 @@ def delete_user(user_id):
         return jsonify({"error": "Unauthorized"}), 403
         
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    cursor = conn.cursor(dictionary=True)
+    
+    # 1. Cari dulu nama pegawai ini siapa?
+    cursor.execute("SELECT nama FROM users WHERE id = %s", (user_id,))
+    user_data = cursor.fetchone()
+    
+    if user_data:
+        nama_pegawai = user_data['nama']
+        
+        # 2. Cabut akses fisiknya (Hapus dari tabel users)
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        
+        # 3. CABUT NYAWA LOGIN-NYA (Hapus dari tabel admins)
+        cursor.execute("DELETE FROM admins WHERE username = %s", (nama_pegawai,))
+        
     conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({"message": "Pegawai berhasil dihapus!"}), 200
+    return jsonify({"message": "Pegawai & Akun Web berhasil dihapus permanen!"}), 200
 
 # ==========================================
 # 8. RIWAYAT AKSES (LOGS)
