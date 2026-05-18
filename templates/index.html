@@ -25,31 +25,29 @@
     .card { background-color: var(--card) !important; color: var(--text); border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     .table { color: var(--text); }
 
-    /* === SOLUSI 1: FIX TULISAN TERLALU BERDEKATAN (SPACING TABEL) === */
+    /* FIX TULISAN BERDEMPETAN (JARAK BERNAFAS TABEL) */
     .table th, .table td { 
-        padding: 16px 20px !important; /* Kasih ruang bernapas vertikal & horizontal */
+        padding: 16px 20px !important; 
         vertical-align: middle;
     }
-    .card-body {
-        padding: 1.8rem !important; /* Spacing isi boks kontrol */
+    .card-body { padding: 1.8rem !important; }
+
+    /* === SOLUSI 1: FIX DROPDOWN TENGGELAM & UNCLICKABLE === */
+    .navbar {
+        position: relative !important;
+        z-index: 2000 !important; /* Naikkan kasta lapis navbar agar berada di atas kontainer boks bawah */
     }
-
-    /* Gaya UI Ruang Kontrol Akses */
-    .font-mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.9rem; }
-    .log-granted { background-color: rgba(25, 135, 84, 0.05) !important; }
-    .log-denied { background-color: rgba(220, 53, 69, 0.04) !important; }
-    
-    [data-theme="dark"] .log-granted { background-color: rgba(25, 135, 84, 0.12) !important; }
-    [data-theme="dark"] .log-denied { background-color: rgba(220, 53, 69, 0.1) !important; }
-
-    /* === SOLUSI 2: FIX DROPDOWN TENGGELAM & KECUT === */
-    .dropdown-menu {
-        min-width: 210px !important;
+    .navbar .dropdown-menu {
+        position: absolute !important; /* Paksa absolut agar tidak terpotong kontainer luar navbar */
+        top: 100% !important;
+        right: 0 !important;
+        left: auto !important;
+        min-width: 220px !important;
         padding: 8px !important;
         border-radius: 12px !important;
         border: 1px solid rgba(0,0,0,0.08) !important;
         box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
-        z-index: 10000 !important; /* Memaksa menu melayang berada di lapisan paling atas */
+        z-index: 10000 !important; /* Mutlak paling atas */
         margin-top: 8px !important;
     }
     [data-theme="dark"] .dropdown-menu {
@@ -57,15 +55,20 @@
         border: 1px solid #444 !important;
     }
     .dropdown-item {
-        padding: 10px 16px !important; /* Memberi nafas pada teks menu agar tidak sesak */
+        padding: 10px 16px !important; 
         border-radius: 8px !important;
         margin-bottom: 2px;
         transition: 0.2s;
     }
-    .dropdown-divider {
-        margin: 6px 0 !important;
-        opacity: 0.15;
-    }
+    .dropdown-divider { margin: 6px 0 !important; opacity: 0.15; }
+
+    /* Gaya Font Data Log */
+    .font-mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.9rem; }
+    .log-granted { background-color: rgba(25, 135, 84, 0.05) !important; }
+    .log-denied { background-color: rgba(220, 53, 69, 0.04) !important; }
+    
+    [data-theme="dark"] .log-granted { background-color: rgba(25, 135, 84, 0.12) !important; }
+    [data-theme="dark"] .log-denied { background-color: rgba(220, 53, 69, 0.1) !important; }
 
     /* Animasi Lampu Detak Jantung Hardware (Heartbeat Dot) */
     .pulse-online { display: inline-block; width: 10px; height: 10px; background-color: #198754; border-radius: 50%; box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); animation: pulse-green 1.5s infinite; }
@@ -88,7 +91,7 @@
                 <i id="theme-icon" class="fa-solid fa-moon"></i>
             </button>
             <div class="dropdown">
-                <a class="nav-link dropdown-toggle text-light fw-semibold" href="#" role="button" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle text-light fw-semibold" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Halo, <strong class="text-info">{{ username }}</strong>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end shadow">
@@ -190,16 +193,13 @@
 </div>
 
 <script>
-// --- MANAGEMENT VARIABEL POPUP ---
 let targetDoorId = '';
 let targetAction = '';
 const bypassModal = new bootstrap.Modal(document.getElementById('bypassModal'));
 
-// --- BUKA PINTU VIA MODAL INDUSTRIAL ---
 function bukaPintu(doorId, actionType) {
     targetDoorId = doorId;
     targetAction = actionType;
-    
     const modalBody = document.getElementById('bypassModalBody');
     const confirmBtn = document.getElementById('btnConfirmBypass');
     
@@ -215,7 +215,6 @@ function bukaPintu(doorId, actionType) {
     bypassModal.show();
 }
 
-// EKSEKUSI PERINTAH SETELAH DISETUJUI DI MODAL
 document.getElementById('btnConfirmBypass').addEventListener('click', function() {
     bypassModal.hide();
     fetch('/trigger_bypass', { 
@@ -225,7 +224,6 @@ document.getElementById('btnConfirmBypass').addEventListener('click', function()
     }).then(response => { if(response.ok) location.reload(); });
 });
 
-// --- LIVE DETAK JANTUNG TIMEOUT HARDWARE ---
 function checkHardwareStatus() {
     {% for door_id in bypass_status.keys() %}
     fetch('/api/hardware_status?door_id={{ door_id }}')
@@ -242,19 +240,26 @@ function checkHardwareStatus() {
                 txt.innerText = 'Sistem Offline';
                 txt.className = 'small text-danger fw-bold ms-1';
             }
+        })
+        .catch(() => {
+            document.getElementById('status-dot-{{ door_id }}').className = 'pulse-offline';
+            document.getElementById('status-text-{{ door_id }}').innerText = 'Sistem Offline';
         });
     {% endfor %}
 }
 
-// --- FITUR REFRESH LIVE TABEL LOG (COLOR CODED & MONOSPACE) ---
+// === SOLUSI 2: FIX INFINITE SPINNER (JALAN BALIKAN AMAN) ===
 function fetchLogs() {
     fetch('/api/logs')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
         .then(data => {
             const tbody = document.getElementById('log-table-body');
             tbody.innerHTML = '';
             
-            if(data.length === 0) {
+            if(!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
                 return;
             }
@@ -262,7 +267,6 @@ function fetchLogs() {
             data.forEach(log => {
                 let statusHtml = '';
                 let rowClass = '';
-                
                 if (log.status === 'ACCESS_GRANTED') {
                     statusHtml = '<span class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>Diterima</span>';
                     rowClass = 'log-granted';
@@ -280,13 +284,33 @@ function fetchLogs() {
                 </tr>`;
                 tbody.innerHTML += row;
             });
+        })
+        .catch(err => {
+            console.log("Database kosong atau server down:", err);
+            const tbody = document.getElementById('log-table-body');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
         });
 }
 
-// --- LOGIKA TOGGLE DARK/LIGHT MODE ---
 function toggleTheme() {
     const current = document.documentElement.getAttribute("data-theme");
     const target = current === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", target);
     localStorage.setItem("theme", target);
-    document.getElementById("theme-icon").className = target ===
+    document.getElementById("theme-icon").className = target === "dark" ? "fa-solid fa-sun" : "fa-solid fa-moon";
+}
+
+if(localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.getElementById("theme-icon").className = "fa-solid fa-sun";
+}
+
+fetchLogs();
+checkHardwareStatus();
+setInterval(fetchLogs, 4000);             
+setInterval(checkHardwareStatus, 5000);   
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
