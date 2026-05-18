@@ -15,14 +15,10 @@ app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
 app.permanent_session_lifetime = timedelta(minutes=15) 
 
-# --- VARIABLE JANTUNG GLOBAL HARDWARE TRACKING ---
 LAST_SEEN_HARDWARE = {}
-
-# --- KONFIGURASI EMAIL BOT ---
 EMAIL_SENDER = "smartdoor.unair@gmail.com" 
 EMAIL_PASSWORD = "plfcwufhkgijwzjr"        
 
-# --- KONEKSI DATABASE ---
 def get_db_connection():
     return mysql.connector.connect(
         host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
@@ -41,10 +37,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
-# ==========================================
-# 1. HALAMAN LOGIN & LOGOUT
-# ==========================================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -58,13 +50,12 @@ def login():
         
         if admin:
             now = datetime.datetime.now()
-            
             if admin['login_attempts'] >= 3:
                 if admin['last_attempt']:
                     time_diff = (now - admin['last_attempt']).total_seconds()
                     if time_diff < 300: 
                         sisa_waktu = int((300 - time_diff) / 60) + 1
-                        return render_template("login.html", error=f"Akun terkunci sementara! Terlalu banyak percobaan salah. Coba lagi dalam {sisa_waktu} menit.")
+                        return render_template("login.html", error=f"Akun terkunci sementara! Coba lagi dalam {sisa_waktu} menit.")
                     else:
                         cursor.execute("UPDATE admins SET login_attempts = 0 WHERE username = %s", (username,))
                         conn.commit()
@@ -76,7 +67,7 @@ def login():
                 conn.close()
                 
                 if admin.get('status') == 'PENDING':
-                    return render_template("login.html", error="Akun PENDING! Silakan tap Master Card lalu tap kartu Anda di alat untuk aktivasi.")
+                    return render_template("login.html", error="Akun PENDING! Silakan tap Master Card lalu tap kartu Anda untuk aktivasi.")
                     
                 session.permanent = True 
                 session['logged_in'] = True
@@ -92,7 +83,7 @@ def login():
         else:
             cursor.close()
             conn.close()
-            return render_template("login.html", error="Akun tidak ditemukan atau Password salah! Silakan daftar akun baru.")
+            return render_template("login.html", error="Akun tidak ditemukan atau Password salah!")
             
     return render_template("login.html")
 
@@ -101,19 +92,13 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
-# ==========================================
-# 2. HALAMAN REGISTRASI & OTP
-# ==========================================
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         action = request.form.get("action")
-        
         if action == "send_otp":
             email = request.form.get("email")
             role = request.form.get("role")
-            
             otp = str(random.randint(100000, 999999))
             session['otp'] = otp
             session['reg_email'] = email
@@ -123,16 +108,9 @@ def register():
             payload = {
                 "to": email,
                 "subject": "Kode OTP Registrasi Smart Door",
-                "text": f"Halo!\n\nKode rahasia (OTP) pendaftaran Smart Door Anda adalah: {otp}\n\nJangan berikan kode ini ke siapapun."
+                "text": f"Kode rahasia (OTP) Anda adalah: {otp}"
             }
-
-            req = urllib.request.Request(
-                WEBHOOK_URL,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-
+            req = urllib.request.Request(WEBHOOK_URL, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
             try:
                 urllib.request.urlopen(req, timeout=10) 
                 return render_template("register.html", step="verify", email=email)
@@ -150,25 +128,19 @@ def register():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
-                    cursor.execute("INSERT INTO admins (username, password, role, email, status) VALUES (%s, %s, %s, %s, 'PENDING')", 
-                                   (username, password, role, email))
+                    cursor.execute("INSERT INTO admins (username, password, role, email, status) VALUES (%s, %s, %s, %s, 'PENDING')", (username, password, role, email))
                     conn.commit()
                     session.clear() 
-                    return render_template("login.html", success="Pendaftaran berhasil! Akun berstatus PENDING. Silakan aktivasi di mesin menggunakan Master Card.")
+                    return render_template("login.html", success="Pendaftaran berhasil! Akun PENDING, silakan aktivasi di mesin menggunakan Master Card.")
                 except Exception as e:
-                    return render_template("register.html", step="verify", email=email, error="Username atau Email sudah terdaftar!")
+                    return render_template("register.html", step="verify", email=email, error="Username/Email sudah terdaftar!")
                 finally:
                     cursor.close()
                     conn.close()
             else:
                 return render_template("register.html", step="verify", email=session.get('reg_email'), error="Kode OTP Salah!")
-
     return render_template("register.html", step="email")
 
-
-# ==========================================
-# 3. DASHBOARD (UTAMA)
-# ==========================================
 @app.route("/")
 @login_required
 def dashboard():
@@ -191,13 +163,8 @@ def dashboard():
     bypass_status = {item['door_id']: item['is_open'] for item in bypass_data}
     cursor.close()
     conn.close()
-    
     return render_template("index.html", logs=logs, bypass_status=bypass_status, role=role, username=session.get('admin_user'))
 
-
-# ==========================================
-# 4. API KONTROL PINTU & HEARTBEAT + ENDPOINT SAKTI AKTIVASI
-# ==========================================
 @app.route("/trigger_bypass", methods=["POST"])
 @login_required
 def trigger_bypass():
@@ -205,7 +172,6 @@ def trigger_bypass():
     action = request.json.get("action", "open")
     role = session.get('role')
     if role != 'admin' and role != door_id: return jsonify({"error": "Akses Ditolak"}), 403
-
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -219,11 +185,9 @@ def trigger_bypass():
 
 @app.route("/check_bypass_status", methods=["GET"])
 def check_bypass_status():
-    door_id = request.args.get("door_id", "door1").lower() # Paksa lowercase untuk detak jantung
-    
+    door_id = request.args.get("door_id", "door1").lower()
     global LAST_SEEN_HARDWARE
     LAST_SEEN_HARDWARE[door_id] = datetime.datetime.now()
-    
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -240,63 +204,48 @@ def check_bypass_status():
         return jsonify({"status": "CLOSED"}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-# === API SAKTI AKTIVASI KARTU BARU (LINK ANTARA USERNAME WEB DAN NAMA WAJAH) ===
+# === API SAKTI AKTIVASI AMAN KEBANTAI SPASI GAIB ===
 @app.route("/activate_admin", methods=["POST"])
 def activate_admin():
     data = request.json
     new_uid = data.get("new_uid")
-    if not new_uid:
-        return jsonify({"status": "FAILED", "error": "UID Kosong!"}), 400
-        
+    if not new_uid: return jsonify({"status": "FAILED", "error": "UID Kosong!"}), 400
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # 1. Cari Akun Web (admins) yang statusnya PENDING paling baru dibuat
         cursor.execute("SELECT username FROM admins WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
         pending_admin = cursor.fetchone()
         
-        # 2. Cari Pegawai Fisik (users) yang rfid_uid-nya kosong / belum terisi paling baru didaftar
-        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR rfid_uid = '' OR rfid_uid = '-' ORDER BY id DESC LIMIT 1")
+        # MENGGUNAKAN TRIM UNTUK MENANGKAP STRIP GAIB DAN SPASI KOSONG
+        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id DESC LIMIT 1")
         pending_user = cursor.fetchone()
         
         if not pending_admin and not pending_user:
             cursor.close()
             conn.close()
-            return jsonify({"status": "FAILED", "error": "Tidak ada antrean pendaftaran!"}), 200
+            return jsonify({"status": "FAILED", "error": "Tidak ada antrean!"}), 200
             
-        # Jika akun web pending ditemukan, pasangkan UID-nya dan aktifkan!
         if pending_admin:
-            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'AKTIF' WHERE username = %s", 
-                           (new_uid, pending_admin['username']))
-            print(f"[SINKRONISASI] Akun Web '{pending_admin['username']}' Berhasil Diaktifkan!")
-
-        # Jika profile wajah fisik ditemukan, pasangkan UID kartu yang sama!
+            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'AKTIF' WHERE username = %s", (new_uid, pending_admin['username']))
         if pending_user:
-            cursor.execute("UPDATE users SET rfid_uid = %s WHERE id = %s", 
-                           (new_uid, pending_user['id']))
-            print(f"[SINKRONISASI] Profil Wajah '{pending_user['nama']}' Berhasil Dipasangkan Kartu!")
+            cursor.execute("UPDATE users SET rfid_uid = %s WHERE id = %s", (new_uid, pending_user['id']))
             
         conn.commit()
         cursor.close()
         conn.close()
         return jsonify({"status": "SUCCESS"}), 200
-        
     except Exception as e:
-        print(f"[ERROR AKTIVASI AMAN] {e}")
         return jsonify({"status": "FAILED", "error": str(e)}), 500
 
 @app.route("/api/hardware_status", methods=["GET"])
 def api_hardware_status():
-    door_id = request.args.get("door_id", "door1").lower() # Paksa lowercase
+    door_id = request.args.get("door_id", "door1").lower()
     global LAST_SEEN_HARDWARE
-    
     last_seen = LAST_SEEN_HARDWARE.get(door_id)
     if last_seen:
-        time_diff = (datetime.datetime.now() - last_seen).total_seconds()
-        if time_diff < 35:
+        if (datetime.datetime.now() - last_seen).total_seconds() < 35:
             return jsonify({"status": "ONLINE"}), 200
-            
     return jsonify({"status": "OFFLINE"}), 200
 
 @app.route("/log_access", methods=["POST"])
@@ -311,15 +260,9 @@ def log_access():
         conn.commit()
         cursor.close()
         conn.close()
-        return jsonify({"message": "Log tersimpan akurat pakai jam WIB!"}), 200
-    except Exception as e: 
-        print(f"[ERROR SIMPAN LOG] {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"message": "Log tersimpan!"}), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
-
-# ==========================================
-# 5. API LIVE REFRESH & EXPORT EXCEL
-# ==========================================
 @app.route("/api/logs")
 @login_required
 def api_logs():
@@ -327,19 +270,14 @@ def api_logs():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SET time_zone = '+07:00'")
-    
     if role == 'admin':
         cursor.execute("SELECT * FROM access_logs WHERE DATE(timestamp) = CURDATE() ORDER BY timestamp DESC LIMIT 50")
     else:
         cursor.execute("SELECT * FROM access_logs WHERE door_id = %s AND DATE(timestamp) = CURDATE() ORDER BY timestamp DESC LIMIT 50", (role,))
-    
     logs = cursor.fetchall()
     cursor.close()
     conn.close()
-    
-    for log in logs:
-        log['timestamp'] = str(log['timestamp'])
-        
+    for log in logs: log['timestamp'] = str(log['timestamp'])
     return jsonify(logs)
 
 @app.route("/export_csv")
@@ -348,31 +286,19 @@ def export_csv():
     role = session.get('role', 'admin')
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    if role == 'admin':
-        cursor.execute("SELECT door_id, timestamp, name, method, status FROM access_logs ORDER BY timestamp DESC")
-    else:
-        cursor.execute("SELECT door_id, timestamp, name, method, status FROM access_logs WHERE door_id = %s ORDER BY timestamp DESC", (role,))
-    
+    if role == 'admin': cursor.execute("SELECT door_id, timestamp, name, method, status FROM access_logs ORDER BY timestamp DESC")
+    else: cursor.execute("SELECT door_id, timestamp, name, method, status FROM access_logs WHERE door_id = %s ORDER BY timestamp DESC", (role,))
     logs = cursor.fetchall()
     cursor.close()
     conn.close()
-
     output = io.StringIO()
     output.write('\ufeff') 
     writer = csv.writer(output, delimiter=';') 
     writer.writerow(['Pintu', 'Waktu', 'Nama', 'Metode', 'Status']) 
-    
-    for log in logs:
-        writer.writerow([log['door_id'], log['timestamp'], log['name'], log['method'], log['status']])
-
+    for log in logs: writer.writerow([log['door_id'], log['timestamp'], log['name'], log['method'], log['status']])
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=Laporan_Akses_SmartDoor.csv"})
 
-
-# ==========================================
-# 6. PROFIL & GANTI PASSWORD
-# ==========================================
 @app.route("/profile")
 @login_required
 def profile():
@@ -383,7 +309,6 @@ def profile():
     user_data = cursor.fetchone()
     cursor.close()
     conn.close()
-    
     email = user_data['email'] if user_data else ""
     return render_template("profile.html", username=username, role=session.get('role'), email=email)
     
@@ -393,10 +318,9 @@ def forgot_password():
     email = request.json.get("email")
     otp = str(random.randint(100000, 999999))
     session['reset_otp'] = otp
-    
     try:
-        msg = MIMEText(f"Kode OTP untuk mengganti password Smart Door Anda adalah: {otp}")
-        msg['Subject'] = 'Reset Password Smart Door'
+        msg = MIMEText(f"Kode OTP Anda adalah: {otp}")
+        msg['Subject'] = 'Reset Password'
         msg['From'] = EMAIL_SENDER
         msg['To'] = email
         server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
@@ -405,8 +329,7 @@ def forgot_password():
         server.send_message(msg)
         server.quit()
         return jsonify({"message": "OTP Terkirim"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route("/update_password", methods=["POST"])
 @login_required
@@ -415,7 +338,6 @@ def update_password():
     if data.get("otp") == session.get("reset_otp"):
         new_password = data.get("new_password")
         username = session.get('admin_user')
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE admins SET password = %s WHERE username = %s", (new_password, username))
@@ -426,16 +348,10 @@ def update_password():
         return jsonify({"message": "Sukses"}), 200
     return jsonify({"error": "OTP Salah"}), 400
 
-
-# ==========================================
-# 7. MANAJEMEN PEGAWAI & AKUN WEB
-# ==========================================
 @app.route("/manage_users")
 @login_required
 def manage_users():
-    if session.get('role') != 'admin':
-        return "Akses Ditolak! Halaman ini khusus Admin Utama.", 403
-        
+    if session.get('role') != 'admin': return "Akses Ditolak!", 403
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT id, nama, rfid_uid, allowed_door FROM users ORDER BY id DESC")
@@ -444,7 +360,6 @@ def manage_users():
     admins_data = cursor.fetchall()
     cursor.close()
     conn.close()
-    
     return render_template("users.html", username=session.get('admin_user'), role=session.get('role'), users=users_data, admins=admins_data)
 
 @app.route("/delete_user/<int:user_id>", methods=["POST"])
@@ -457,7 +372,7 @@ def delete_user(user_id):
     conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({"message": "Akses Pintu (Wajah+RFID) dihapus!"}), 200
+    return jsonify({"message": "Sukses"}), 200
 
 @app.route("/delete_admin/<int:admin_id>", methods=["POST"])
 @login_required
@@ -469,12 +384,8 @@ def delete_admin(admin_id):
     conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({"message": "Akun Login Web berhasil dihapus!"}), 200
+    return jsonify({"message": "Sukses"}), 200
 
-
-# ==========================================
-# 8. RIWAYAT AKSES (LOGS)
-# ==========================================
 @app.route("/logs")
 @login_required
 def view_logs():
@@ -484,9 +395,7 @@ def view_logs():
     logs_data = cursor.fetchall()
     cursor.close()
     conn.close()
-    
     return render_template("logs.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
