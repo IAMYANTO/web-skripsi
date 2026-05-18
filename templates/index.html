@@ -62,6 +62,7 @@
     /* Animasi Lampu Detak Jantung Hardware (Heartbeat Dot) */
     .pulse-online { display: inline-block; width: 10px; height: 10px; background-color: #198754; border-radius: 50%; box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); animation: pulse-green 1.5s infinite; }
     .pulse-offline { display: inline-block; width: 10px; height: 10px; background-color: #dc3545; border-radius: 50%; }
+    .pulse-checking { display: inline-block; width: 10px; height: 10px; background-color: #ffc107; border-radius: 50%; }
     
     @keyframes pulse-green {
         0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
@@ -105,7 +106,7 @@
             <div class="card mb-4 position-relative">
                 <div class="card-body text-center">
                     <div class="position-absolute top-0 end-0 p-3 d-flex align-items-center">
-                        <span id="status-dot-{{ door_id | lower }}" class="pulse-offline"></span> 
+                        <span id="status-dot-{{ door_id | lower }}" class="pulse-checking"></span> 
                         <small id="status-text-{{ door_id | lower }}" class="text-muted fw-bold ms-1">Mengecek Alat...</small>
                     </div>
                     
@@ -186,6 +187,10 @@ let targetDoorId = '';
 let targetAction = '';
 const bypassModal = new bootstrap.Modal(document.getElementById('bypassModal'));
 
+// TRACKING WAKTU DAN STATUS GLOBAL UNTUK TOLERANSI 10 DETIK
+let hardwareOnlineStatus = {};
+let pageLoadTime = Date.now();
+
 function bukaPintu(doorId, actionType) {
     targetDoorId = doorId;
     targetAction = actionType;
@@ -213,7 +218,7 @@ document.getElementById('btnConfirmBypass').addEventListener('click', function()
     }).then(response => { if(response.ok) location.reload(); });
 });
 
-// FIX LOGIKA DETAK JANTUNG CASE-INSENSITIVE KEBANTAI TOTAL
+// FIX LOGIKA DETAK JANTUNG GRACE PERIOD 10 DETIK
 function checkHardwareStatus() {
     {% for door_id in bypass_status.keys() %}
     (function() {
@@ -225,20 +230,26 @@ function checkHardwareStatus() {
                 const txt = document.getElementById('status-text-' + id_pintu);
                 if (dot && txt) {
                     if (data.status === 'ONLINE') {
+                        hardwareOnlineStatus[id_pintu] = true;
                         dot.className = 'pulse-online';
                         txt.innerText = 'Sistem Online';
                         txt.className = 'small text-success fw-bold ms-1';
                     } else {
-                        dot.className = 'pulse-offline';
-                        txt.innerText = 'Sistem Offline';
-                        txt.className = 'small text-danger fw-bold ms-1';
+                        hardwareOnlineStatus[id_pintu] = false;
+                        // Jika sudah lewat 10 detik, paksa ganti ke Offline
+                        if (Date.now() - pageLoadTime > 10000) {
+                            dot.className = 'pulse-offline';
+                            txt.innerText = 'Sistem Offline';
+                            txt.className = 'small text-danger fw-bold ms-1';
+                        }
                     }
                 }
             })
             .catch(() => {
+                hardwareOnlineStatus[id_pintu] = false;
                 const dot = document.getElementById('status-dot-' + id_pintu);
                 const txt = document.getElementById('status-text-' + id_pintu);
-                if (dot && txt) {
+                if (dot && txt && (Date.now() - pageLoadTime > 10000)) {
                     dot.className = 'pulse-offline';
                     txt.innerText = 'Sistem Offline';
                     txt.className = 'small text-danger fw-bold ms-1';
@@ -302,6 +313,24 @@ if(localStorage.getItem("theme") === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
     document.getElementById("theme-icon").className = "fa-solid fa-sun";
 }
+
+// TIMEOUT JAGA-JAGA JIKA 10 DETIK SAMA SEKALI TIDAK ADA RESPON SEJAK LOGIN WEB
+setTimeout(function() {
+    {% for door_id in bypass_status.keys() %}
+    (function() {
+        let id_pintu = '{{ door_id }}'.toLowerCase();
+        if (!hardwareOnlineStatus[id_pintu]) {
+            const dot = document.getElementById('status-dot-' + id_pintu);
+            const txt = document.getElementById('status-text-' + id_pintu);
+            if (dot && txt) {
+                dot.className = 'pulse-offline';
+                txt.innerText = 'Sistem Offline';
+                txt.className = 'small text-danger fw-bold ms-1';
+            }
+        }
+    })();
+    {% endfor %}
+}, 10000);
 
 fetchLogs();
 checkHardwareStatus();
