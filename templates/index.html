@@ -32,13 +32,10 @@
     }
     .card-body { padding: 1.8rem !important; }
 
-    /* === SOLUSI 1: FIX DROPDOWN TENGGELAM & UNCLICKABLE === */
-    .navbar {
-        position: relative !important;
-        z-index: 2000 !important; /* Naikkan kasta lapis navbar agar berada di atas kontainer boks bawah */
-    }
+    /* FIX DROPDOWN TENGGELAM & UNCLICKABLE */
+    .navbar { position: relative !important; z-index: 2000 !important; }
     .navbar .dropdown-menu {
-        position: absolute !important; /* Paksa absolut agar tidak terpotong kontainer luar navbar */
+        position: absolute !important; 
         top: 100% !important;
         right: 0 !important;
         left: auto !important;
@@ -47,19 +44,11 @@
         border-radius: 12px !important;
         border: 1px solid rgba(0,0,0,0.08) !important;
         box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
-        z-index: 10000 !important; /* Mutlak paling atas */
+        z-index: 10000 !important; 
         margin-top: 8px !important;
     }
-    [data-theme="dark"] .dropdown-menu {
-        background-color: #2d2d2d !important;
-        border: 1px solid #444 !important;
-    }
-    .dropdown-item {
-        padding: 10px 16px !important; 
-        border-radius: 8px !important;
-        margin-bottom: 2px;
-        transition: 0.2s;
-    }
+    [data-theme="dark"] .dropdown-menu { background-color: #2d2d2d !important; border: 1px solid #444 !important; }
+    .dropdown-item { padding: 10px 16px !important; border-radius: 8px !important; margin-bottom: 2px; transition: 0.2s; }
     .dropdown-divider { margin: 6px 0 !important; opacity: 0.15; }
 
     /* Gaya Font Data Log */
@@ -116,8 +105,8 @@
             <div class="card mb-4 position-relative">
                 <div class="card-body text-center">
                     <div class="position-absolute top-0 end-0 p-3 d-flex align-items-center">
-                        <span id="status-dot-{{ door_id }}" class="pulse-offline"></span> 
-                        <small id="status-text-{{ door_id }}" class="text-muted fw-bold ms-1">Mengecek Alat...</small>
+                        <span id="status-dot-{{ door_id | lower }}" class="pulse-offline"></span> 
+                        <small id="status-text-{{ door_id | lower }}" class="text-muted fw-bold ms-1">Mengecek Alat...</small>
                     </div>
                     
                     <h5 class="card-title text-muted mb-4 mt-2">Kontrol Akses: <span class="text-primary fw-bold">{{ door_id | upper }}</span></h5>
@@ -224,31 +213,41 @@ document.getElementById('btnConfirmBypass').addEventListener('click', function()
     }).then(response => { if(response.ok) location.reload(); });
 });
 
+// FIX LOGIKA DETAK JANTUNG CASE-INSENSITIVE KEBANTAI TOTAL
 function checkHardwareStatus() {
     {% for door_id in bypass_status.keys() %}
-    fetch('/api/hardware_status?door_id={{ door_id }}')
-        .then(response => response.json())
-        .then(data => {
-            const dot = document.getElementById('status-dot-{{ door_id }}');
-            const txt = document.getElementById('status-text-{{ door_id }}');
-            if (data.status === 'ONLINE') {
-                dot.className = 'pulse-online';
-                txt.innerText = 'Sistem Online';
-                txt.className = 'small text-success fw-bold ms-1';
-            } else {
-                dot.className = 'pulse-offline';
-                txt.innerText = 'Sistem Offline';
-                txt.className = 'small text-danger fw-bold ms-1';
-            }
-        })
-        .catch(() => {
-            document.getElementById('status-dot-{{ door_id }}').className = 'pulse-offline';
-            document.getElementById('status-text-{{ door_id }}').innerText = 'Sistem Offline';
-        });
+    (function() {
+        let id_pintu = '{{ door_id }}'.toLowerCase();
+        fetch('/api/hardware_status?door_id=' + id_pintu)
+            .then(response => response.json())
+            .then(data => {
+                const dot = document.getElementById('status-dot-' + id_pintu);
+                const txt = document.getElementById('status-text-' + id_pintu);
+                if (dot && txt) {
+                    if (data.status === 'ONLINE') {
+                        dot.className = 'pulse-online';
+                        txt.innerText = 'Sistem Online';
+                        txt.className = 'small text-success fw-bold ms-1';
+                    } else {
+                        dot.className = 'pulse-offline';
+                        txt.innerText = 'Sistem Offline';
+                        txt.className = 'small text-danger fw-bold ms-1';
+                    }
+                }
+            })
+            .catch(() => {
+                const dot = document.getElementById('status-dot-' + id_pintu);
+                const txt = document.getElementById('status-text-' + id_pintu);
+                if (dot && txt) {
+                    dot.className = 'pulse-offline';
+                    txt.innerText = 'Sistem Offline';
+                    txt.className = 'small text-danger fw-bold ms-1';
+                }
+            });
+    })();
     {% endfor %}
 }
 
-// === SOLUSI 2: FIX INFINITE SPINNER (JALAN BALIKAN AMAN) ===
 function fetchLogs() {
     fetch('/api/logs')
         .then(response => {
@@ -286,7 +285,6 @@ function fetchLogs() {
             });
         })
         .catch(err => {
-            console.log("Database kosong atau server down:", err);
             const tbody = document.getElementById('log-table-body');
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
         });
