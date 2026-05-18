@@ -13,7 +13,7 @@ from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
-app.permanent_session_lifetime = timedelta(minutes=15) # Sesuai pilar durasi auto logout aman
+app.permanent_session_lifetime = timedelta(minutes=15) 
 
 # --- VARIABLE JANTUNG GLOBAL HARDWARE TRACKING ---
 LAST_SEEN_HARDWARE = {}
@@ -59,7 +59,6 @@ def login():
         if admin:
             now = datetime.datetime.now()
             
-            # CEK BRUTE-FORCE: Apakah akun sedang terkunci?
             if admin['login_attempts'] >= 3:
                 if admin['last_attempt']:
                     time_diff = (now - admin['last_attempt']).total_seconds()
@@ -70,7 +69,6 @@ def login():
                         cursor.execute("UPDATE admins SET login_attempts = 0 WHERE username = %s", (username,))
                         conn.commit()
 
-            # CEK PASSWORD:
             if admin['password'] == password:
                 cursor.execute("UPDATE admins SET login_attempts = 0 WHERE username = %s", (username,))
                 conn.commit()
@@ -198,7 +196,7 @@ def dashboard():
 
 
 # ==========================================
-# 4. API & KONTROL PINTU + HEARTBEAT STATUS
+# 4. API KONTROL PINTU & HEARTBEAT + ENDPOINT SAKTI AKTIVASI
 # ==========================================
 @app.route("/trigger_bypass", methods=["POST"])
 @login_required
@@ -221,19 +219,18 @@ def trigger_bypass():
 
 @app.route("/check_bypass_status", methods=["GET"])
 def check_bypass_status():
-    door_id = request.args.get("door_id", "door1")
+    door_id = request.args.get("door_id", "door1").lower() # Paksa lowercase untuk detak jantung
     
-    # SUNTIKAN DETAK JANTUNG: Catat waktu terakhir alat melakukan ping ke server web
     global LAST_SEEN_HARDWARE
     LAST_SEEN_HARDWARE[door_id] = datetime.datetime.now()
     
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT is_open FROM remote_control WHERE door_id = %s", (door_id,))
+        cursor.execute("SELECT is_open FROM remote_control WHERE LOWER(door_id) = %s", (door_id,))
         status = cursor.fetchone()
         if status and status['is_open']:
-            cursor.execute("UPDATE remote_control SET is_open = FALSE WHERE door_id = %s", (door_id,))
+            cursor.execute("UPDATE remote_control SET is_open = FALSE WHERE LOWER(door_id) = %s", (door_id,))
             conn.commit()
             cursor.close()
             conn.close()
@@ -243,15 +240,59 @@ def check_bypass_status():
         return jsonify({"status": "CLOSED"}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-# API UNTUK MEMBACA ONLINE/OFFLINE SENSOR FISIK DI DASHBOARD WEB
+# === API SAKTI AKTIVASI KARTU BARU (LINK ANTARA USERNAME WEB DAN NAMA WAJAH) ===
+@app.route("/activate_admin", methods=["POST"])
+def activate_admin():
+    data = request.json
+    new_uid = data.get("new_uid")
+    if not new_uid:
+        return jsonify({"status": "FAILED", "error": "UID Kosong!"}), 400
+        
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # 1. Cari Akun Web (admins) yang statusnya PENDING paling baru dibuat
+        cursor.execute("SELECT username FROM admins WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
+        pending_admin = cursor.fetchone()
+        
+        # 2. Cari Pegawai Fisik (users) yang rfid_uid-nya kosong / belum terisi paling baru didaftar
+        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR rfid_uid = '' OR rfid_uid = '-' ORDER BY id DESC LIMIT 1")
+        pending_user = cursor.fetchone()
+        
+        if not pending_admin and not pending_user:
+            cursor.close()
+            conn.close()
+            return jsonify({"status": "FAILED", "error": "Tidak ada antrean pendaftaran!"}), 200
+            
+        # Jika akun web pending ditemukan, pasangkan UID-nya dan aktifkan!
+        if pending_admin:
+            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'AKTIF' WHERE username = %s", 
+                           (new_uid, pending_admin['username']))
+            print(f"[SINKRONISASI] Akun Web '{pending_admin['username']}' Berhasil Diaktifkan!")
+
+        # Jika profile wajah fisik ditemukan, pasangkan UID kartu yang sama!
+        if pending_user:
+            cursor.execute("UPDATE users SET rfid_uid = %s WHERE id = %s", 
+                           (new_uid, pending_user['id']))
+            print(f"[SINKRONISASI] Profil Wajah '{pending_user['nama']}' Berhasil Dipasangkan Kartu!")
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "SUCCESS"}), 200
+        
+    except Exception as e:
+        print(f"[ERROR AKTIVASI AMAN] {e}")
+        return jsonify({"status": "FAILED", "error": str(e)}), 500
+
 @app.route("/api/hardware_status", methods=["GET"])
 def api_hardware_status():
-    door_id = request.args.get("door_id", "door1")
+    door_id = request.args.get("door_id", "door1").lower() # Paksa lowercase
     global LAST_SEEN_HARDWARE
     
     last_seen = LAST_SEEN_HARDWARE.get(door_id)
     if last_seen:
-        # Jika alat melakukan ping kurang dari 35 detik yang lalu, maka dianggap ONLINE
         time_diff = (datetime.datetime.now() - last_seen).total_seconds()
         if time_diff < 35:
             return jsonify({"status": "ONLINE"}), 200
