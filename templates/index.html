@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Smart Door Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
     /* Estetika Tema */
@@ -25,14 +26,14 @@
     .card { background-color: var(--card) !important; color: var(--text); border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     .table { color: var(--text); }
 
-    /* FIX TULISAN BERDEMPETAN (JARAK BERNAFAS TABEL) */
+    /* FIX JARAK BERNAFAS TABEL */
     .table th, .table td { 
         padding: 16px 20px !important; 
         vertical-align: middle;
     }
     .card-body { padding: 1.8rem !important; }
 
-    /* FIX DROPDOWN TENGGELAM & UNCLICKABLE */
+    /* FIX DROPDOWN FIXING LAYER */
     .navbar { position: relative !important; z-index: 2000 !important; }
     .navbar .dropdown-menu {
         position: absolute !important; 
@@ -59,7 +60,7 @@
     [data-theme="dark"] .log-granted { background-color: rgba(25, 135, 84, 0.12) !important; }
     [data-theme="dark"] .log-denied { background-color: rgba(220, 53, 69, 0.1) !important; }
 
-    /* Animasi Lampu Detak Jantung Hardware (Heartbeat Dot) */
+    /* Lampu Detak Jantung Hardware (Heartbeat Dot) */
     .pulse-online { display: inline-block; width: 10px; height: 10px; background-color: #198754; border-radius: 50%; box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); animation: pulse-green 1.5s infinite; }
     .pulse-offline { display: inline-block; width: 10px; height: 10px; background-color: #dc3545; border-radius: 50%; }
     .pulse-checking { display: inline-block; width: 10px; height: 10px; background-color: #ffc107; border-radius: 50%; }
@@ -183,123 +184,148 @@
 </div>
 
 <script>
-let targetDoorId = '';
-let targetAction = '';
-const bypassModal = new bootstrap.Modal(document.getElementById('bypassModal'));
-
-// TRACKING WAKTU DAN STATUS GLOBAL UNTUK TOLERANSI 10 DETIK
-let hardwareOnlineStatus = {};
-let pageLoadTime = Date.now();
-
-function bukaPintu(doorId, actionType) {
-    targetDoorId = doorId;
-    targetAction = actionType;
-    const modalBody = document.getElementById('bypassModalBody');
-    const confirmBtn = document.getElementById('btnConfirmBypass');
+document.addEventListener("DOMContentLoaded", function() {
+    let targetDoorId = '';
+    let targetAction = '';
+    const bypassModal = new bootstrap.Modal(document.getElementById('bypassModal'));
     
-    if (actionType === 'reset') {
-        modalBody.innerText = `Batalkan perintah otomatis dan kunci kembali Pintu: ${doorId.toUpperCase()}?`;
-        confirmBtn.className = "btn btn-secondary fw-bold px-4";
-        confirmBtn.innerText = "Ya, Kunci Kembali";
-    } else {
-        modalBody.innerText = `PERINGATAN: Buka paksa kunci solenoid elektrik pada Pintu: ${doorId.toUpperCase()} dari jarak jauh secara remote?`;
-        confirmBtn.className = "btn btn-danger fw-bold px-4";
-        confirmBtn.innerText = "Ya, Buka Pintu";
+    let hardwareOnlineStatus = {};
+    let pageLoadTime = Date.now();
+
+    window.bukaPintu = function(doorId, actionType) {
+        targetDoorId = doorId;
+        targetAction = actionType;
+        const modalBody = document.getElementById('bypassModalBody');
+        const confirmBtn = document.getElementById('btnConfirmBypass');
+        
+        if (actionType === 'reset') {
+            modalBody.innerText = `Batalkan perintah otomatis dan kunci kembali Pintu: ${doorId.toUpperCase()}?`;
+            confirmBtn.className = "btn btn-secondary fw-bold px-4";
+            confirmBtn.innerText = "Ya, Kunci Kembali";
+        } else {
+            modalBody.innerText = `PERINGATAN: Buka paksa kunci solenoid elektrik pada Pintu: ${doorId.toUpperCase()} dari jarak jauh secara remote?`;
+            confirmBtn.className = "btn btn-danger fw-bold px-4";
+            confirmBtn.innerText = "Ya, Buka Pintu";
+        }
+        bypassModal.show();
     }
-    bypassModal.show();
-}
 
-document.getElementById('btnConfirmBypass').addEventListener('click', function() {
-    bypassModal.hide();
-    fetch('/trigger_bypass', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ door_id: targetDoorId, action: targetAction })
-    }).then(response => { if(response.ok) location.reload(); });
-});
+    document.getElementById('btnConfirmBypass').addEventListener('click', function() {
+        bypassModal.hide();
+        fetch('/trigger_bypass', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ door_id: targetDoorId, action: targetAction })
+        }).then(response => { if(response.ok) location.reload(); });
+    });
 
-// FIX LOGIKA DETAK JANTUNG GRACE PERIOD 10 DETIK
-function checkHardwareStatus() {
-    {% for door_id in bypass_status.keys() %}
-    (function() {
-        let id_pintu = '{{ door_id }}'.toLowerCase();
-        fetch('/api/hardware_status?door_id=' + id_pintu)
-            .then(response => response.json())
+    window.checkHardwareStatus = function() {
+        {% for door_id in bypass_status.keys() %}
+        (function() {
+            let id_pintu = '{{ door_id }}'.toLowerCase();
+            fetch('/api/hardware_status?door_id=' + id_pintu)
+                .then(response => response.json())
+                .then(data => {
+                    const dot = document.getElementById('status-dot-' + id_pintu);
+                    const txt = document.getElementById('status-text-' + id_pintu);
+                    if (dot && txt) {
+                        if (data.status === 'ONLINE') {
+                            hardwareOnlineStatus[id_pintu] = true;
+                            dot.className = 'pulse-online';
+                            txt.innerText = 'Sistem Online';
+                            txt.className = 'small text-success fw-bold ms-1';
+                        } else {
+                            hardwareOnlineStatus[id_pintu] = false;
+                            if (Date.now() - pageLoadTime > 10000) {
+                                dot.className = 'pulse-offline';
+                                txt.innerText = 'Sistem Offline';
+                                txt.className = 'small text-danger fw-bold ms-1';
+                            }
+                        }
+                    }
+                })
+                .catch(() => {
+                    hardwareOnlineStatus[id_pintu] = false;
+                    const dot = document.getElementById('status-dot-' + id_pintu);
+                    const txt = document.getElementById('status-text-' + id_pintu);
+                    if (dot && txt && (Date.now() - pageLoadTime > 10000)) {
+                        dot.className = 'pulse-offline';
+                        txt.innerText = 'Sistem Offline';
+                        txt.className = 'small text-danger fw-bold ms-1';
+                    }
+                });
+        })();
+        {% endfor %}
+    }
+
+    window.fetchLogs = function() {
+        fetch('/api/logs')
+            .then(response => {
+                if (!response.ok) throw new Error('Network error');
+                return response.json();
+            })
             .then(data => {
+                const tbody = document.getElementById('log-table-body');
+                if(!tbody) return;
+                tbody.innerHTML = '';
+                
+                if(!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
+                    return;
+                }
+
+                data.forEach(log => {
+                    let statusHtml = '';
+                    let rowClass = '';
+                    if (log.status === 'ACCESS_GRANTED') {
+                        statusHtml = '<span class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>Diterima</span>';
+                        rowClass = 'log-granted';
+                    } else {
+                        statusHtml = '<span class="text-danger fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i>Ditolak</span>';
+                        rowClass = 'log-denied';
+                    }
+                        
+                    let row = `<tr class="${rowClass} font-mono">
+                        <td class="fw-bold text-primary">${log.door_id.toUpperCase()}</td>
+                        <td class="text-muted"><small>${log.timestamp}</small></td>
+                        <td class="fw-bold text-dark">${log.name}</td>
+                        <td><span class="badge bg-secondary px-2 py-1">${log.method}</span></td>
+                        <td>${statusHtml}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            })
+            .catch(err => {
+                console.log("Error Log Handled:", err);
+                const tbody = document.getElementById('log-table-body');
+                if(tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
+            });
+    }
+
+    // PAKSA OFF KALO LEWAT 10 DETIK BELUM ADA PING SAMA SEKALI
+    setTimeout(function() {
+        {% for door_id in bypass_status.keys() %}
+        (function() {
+            let id_pintu = '{{ door_id }}'.toLowerCase();
+            if (!hardwareOnlineStatus[id_pintu]) {
                 const dot = document.getElementById('status-dot-' + id_pintu);
                 const txt = document.getElementById('status-text-' + id_pintu);
                 if (dot && txt) {
-                    if (data.status === 'ONLINE') {
-                        hardwareOnlineStatus[id_pintu] = true;
-                        dot.className = 'pulse-online';
-                        txt.innerText = 'Sistem Online';
-                        txt.className = 'small text-success fw-bold ms-1';
-                    } else {
-                        hardwareOnlineStatus[id_pintu] = false;
-                        // Jika sudah lewat 10 detik, paksa ganti ke Offline
-                        if (Date.now() - pageLoadTime > 10000) {
-                            dot.className = 'pulse-offline';
-                            txt.innerText = 'Sistem Offline';
-                            txt.className = 'small text-danger fw-bold ms-1';
-                        }
-                    }
-                }
-            })
-            .catch(() => {
-                hardwareOnlineStatus[id_pintu] = false;
-                const dot = document.getElementById('status-dot-' + id_pintu);
-                const txt = document.getElementById('status-text-' + id_pintu);
-                if (dot && txt && (Date.now() - pageLoadTime > 10000)) {
                     dot.className = 'pulse-offline';
                     txt.innerText = 'Sistem Offline';
                     txt.className = 'small text-danger fw-bold ms-1';
                 }
-            });
-    })();
-    {% endfor %}
-}
-
-function fetchLogs() {
-    fetch('/api/logs')
-        .then(response => {
-            if (!response.ok) throw new Error('Network error');
-            return response.json();
-        })
-        .then(data => {
-            const tbody = document.getElementById('log-table-body');
-            tbody.innerHTML = '';
-            
-            if(!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
-                return;
             }
+        })();
+        {% endfor %}
+    }, 10000);
 
-            data.forEach(log => {
-                let statusHtml = '';
-                let rowClass = '';
-                if (log.status === 'ACCESS_GRANTED') {
-                    statusHtml = '<span class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>Diterima</span>';
-                    rowClass = 'log-granted';
-                } else {
-                    statusHtml = '<span class="text-danger fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i>Ditolak</span>';
-                    rowClass = 'log-denied';
-                }
-                    
-                let row = `<tr class="${rowClass} font-mono">
-                    <td class="fw-bold text-primary">${log.door_id.toUpperCase()}</td>
-                    <td class="text-muted"><small>${log.timestamp}</small></td>
-                    <td class="fw-bold text-dark">${log.name}</td>
-                    <td><span class="badge bg-secondary px-2 py-1">${log.method}</span></td>
-                    <td>${statusHtml}</td>
-                </tr>`;
-                tbody.innerHTML += row;
-            });
-        })
-        .catch(err => {
-            const tbody = document.getElementById('log-table-body');
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada riwayat akses hari ini.</td></tr>';
-        });
-}
+    // Jalankan Siklus Monitoring
+    fetchLogs();
+    checkHardwareStatus();
+    setInterval(fetchLogs, 4000);             
+    setInterval(checkHardwareStatus, 5000);   
+});
 
 function toggleTheme() {
     const current = document.documentElement.getAttribute("data-theme");
@@ -311,33 +337,7 @@ function toggleTheme() {
 
 if(localStorage.getItem("theme") === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
-    document.getElementById("theme-icon").className = "fa-solid fa-sun";
 }
-
-// TIMEOUT JAGA-JAGA JIKA 10 DETIK SAMA SEKALI TIDAK ADA RESPON SEJAK LOGIN WEB
-setTimeout(function() {
-    {% for door_id in bypass_status.keys() %}
-    (function() {
-        let id_pintu = '{{ door_id }}'.toLowerCase();
-        if (!hardwareOnlineStatus[id_pintu]) {
-            const dot = document.getElementById('status-dot-' + id_pintu);
-            const txt = document.getElementById('status-text-' + id_pintu);
-            if (dot && txt) {
-                dot.className = 'pulse-offline';
-                txt.innerText = 'Sistem Offline';
-                txt.className = 'small text-danger fw-bold ms-1';
-            }
-        }
-    })();
-    {% endfor %}
-}, 10000);
-
-fetchLogs();
-checkHardwareStatus();
-setInterval(fetchLogs, 4000);             
-setInterval(checkHardwareStatus, 5000);   
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
