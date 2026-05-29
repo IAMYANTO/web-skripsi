@@ -26,18 +26,3 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
 
-  # Registrasi Wajah Service (Interaktif)
-  # Catatan: Harus dijalankan dengan akses X11/Webcam jika di lokal
-  face-registration:
-    build:
-      context: .
-      dockerfile: Dockerfile.registration
-    container_name: smartdoor-reg
-    network_mode: "host"
-    privileged: true
-    volumes:
-      - /dev/video0:/dev/video0
-      - /tmp/.X11-unix:/tmp/.X11-unix
-    environment:
-      - DISPLAY=$DISPLAY
-      - PYTHONUNBUFFERED=1
