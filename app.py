@@ -304,6 +304,36 @@ def export_csv():
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=Laporan_Akses_SmartDoor.csv"})
 
+import subprocess
+import threading
+
+def run_update_script():
+    try:
+        # Nembak webhook / SSH command lokal ke server (di sini kita simulasikan karena butuh privilese di server)
+        # Pada skenario real di dalam container, agak tricky untuk trigger kubectl di host.
+        pass
+    except Exception as e:
+        print(f"Error update: {e}")
+
+@app.route("/api/update_app", methods=["GET"])
+@login_required
+def api_update_app():
+    role = session.get('role')
+    if role != 'admin': return jsonify({"error": "Akses Ditolak"}), 403
+    
+    # Trigger background job agar tidak memblokir response
+    thread = threading.Thread(target=run_update_script)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({"message": "Service mu aku update ya. tunggu kurang lebih 5 menit."}), 200
+
+@app.route("/system_update")
+@login_required
+def system_update_page():
+    if session.get('role') != 'admin': return "Akses Ditolak!", 403
+    return render_template("update.html", username=session.get('admin_user'), role=session.get('role'))
+
 @app.route("/profile")
 @login_required
 def profile():

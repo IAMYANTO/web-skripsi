@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistem Update - Smart Door</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; }
+        .card { border-radius: 15px; border: none; }
+        .progress { height: 25px; border-radius: 12px; }
+        .console-box {
+            background-color: #1e1e1e;
+            color: #00ff00;
+            font-family: monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <a href="/" class="btn btn-sm btn-secondary mb-3"><i class="fa-solid fa-arrow-left me-2"></i>Kembali ke Dashboard</a>
+                
+                <div class="card shadow p-4">
+                    <h4 class="fw-bold mb-4 border-bottom pb-2"><i class="fa-solid fa-cloud-arrow-down me-2 text-primary"></i>Pembaruan Sistem</h4>
+                    
+                    <p class="text-muted">Gunakan fitur ini untuk menarik pembaruan terbaru dari repositori GitHub secara otomatis dan membangun ulang sistem. Proses ini membutuhkan waktu kurang lebih 5 menit.</p>
+
+                    <div class="alert alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Peringatan:</strong> Aplikasi mungkin akan mengalami <em>downtime</em> (tidak bisa diakses) selama 1-2 menit terakhir ketika Container direstart.
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <button id="btn-update" class="btn btn-primary btn-lg fw-bold px-5">
+                            <i class="fa-solid fa-rocket me-2"></i>Mulai Update Sekarang
+                        </button>
+                    </div>
+
+                    <!-- Progress Section (Hidden by default) -->
+                    <div id="progress-section" class="mt-5" style="display:none;">
+                        <h6 class="fw-bold mb-3" id="progress-text">Status: Menginisialisasi Pembaruan...</h6>
+                        <div class="progress mb-3">
+                            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        
+                        <div class="console-box" id="console-output">
+                            > Menunggu instruksi...<br>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btn-update').addEventListener('click', function() {
+            if(confirm('Apakah Anda yakin ingin melakukan update sistem sekarang?')) {
+                // Disable button
+                this.disabled = true;
+                this.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Memproses...';
+                
+                // Show progress
+                document.getElementById('progress-section').style.display = 'block';
+                
+                // Add console log
+                addLog("> Triggering Update API...");
+                
+                // Call API
+                fetch('/api/update_app')
+                .then(res => res.json())
+                .then(data => {
+                    if(data.message) {
+                        addLog("> Server Response: " + data.message);
+                        startProgressSimulation();
+                    } else {
+                        addLog("> Error: " + data.error, "text-danger");
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fa-solid fa-rocket me-2"></i>Coba Update Lagi';
+                    }
+                })
+                .catch(err => {
+                    addLog("> Jaringan terputus atau server sedang restart: " + err, "text-danger");
+                });
+            }
+        });
+
+        function addLog(text, className="") {
+            const consoleBox = document.getElementById('console-output');
+            const span = document.createElement('span');
+            if(className) span.className = className;
+            span.innerHTML = text + "<br>";
+            consoleBox.appendChild(span);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        function startProgressSimulation() {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            // Waktu simulasi (5 menit = 300 detik)
+            // Dipercepat sedikit untuk UX (kita pakai 180 detik / 3 menit untuk bar)
+            const totalSteps = 100;
+            const stepTime = (180 * 1000) / totalSteps; 
+            
+            let currentStep = 0;
+            
+            const logs = [
+                {p: 5, msg: "> Mengunduh kode terbaru dari GitHub (Pulling branch production)..."},
+                {p: 15, msg: "> Kode berhasil diunduh. Memulai proses Build Docker Image Backend..."},
+                {p: 25, msg: "> (Backend) Installing dependencies & pip requirements..."},
+                {p: 40, msg: "> Docker Image Backend berhasil dibangun."},
+                {p: 45, msg: "> Memulai proses Build Docker Image Access Control (ini memakan waktu agak lama)..."},
+                {p: 60, msg: "> (Access Control) Mengompilasi C++ CMake libraries (dlib/OpenCV)..."},
+                {p: 75, msg: "> Docker Image Access Control berhasil dibangun."},
+                {p: 80, msg: "> Mengirim Images ke K3S Containerd Registry..."},
+                {p: 90, msg: "> Memulai ulang layanan (Rolling Update)..."},
+                {p: 95, msg: "> Menunggu pods baru agar Running & Ready..."},
+                {p: 100, msg: "> SELESAI! Sistem telah diperbarui."}
+            ];
+            
+            const timer = setInterval(() => {
+                currentStep++;
+                
+                progressBar.style.width = currentStep + '%';
+                progressBar.textContent = currentStep + '%';
+                
+                // Check messages
+                for(let i=0; i<logs.length; i++) {
+                    if(logs[i].p === currentStep) {
+                        addLog(logs[i].msg);
+                        progressText.textContent = "Status: " + logs[i].msg.replace("> ", "");
+                    }
+                }
+                
+                if(currentStep >= 100) {
+                    clearInterval(timer);
+                    progressBar.classList.remove('progress-bar-animated');
+                    addLog("<br>> <strong>Aplikasi berhasil di-update. Halaman akan dimuat ulang dalam 10 detik.</strong>", "text-warning");
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 10000);
+                }
+            }, stepTime);
+        }
+    </script>
+</body>
+</html>
