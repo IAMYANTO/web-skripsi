@@ -309,9 +309,9 @@ import threading
 
 def run_update_script():
     try:
-        # Nembak webhook / SSH command lokal ke server (di sini kita simulasikan karena butuh privilese di server)
-        # Pada skenario real di dalam container, agak tricky untuk trigger kubectl di host.
-        pass
+        # Menggunakan sshpass untuk mengeksekusi script update di server host dari dalam container
+        ssh_cmd = "sshpass -p 'Kmzway87aa18032001' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
+        subprocess.run(ssh_cmd, shell=True)
     except Exception as e:
         print(f"Error update: {e}")
 
