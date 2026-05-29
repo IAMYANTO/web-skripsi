@@ -4,19 +4,31 @@ import numpy as np
 import cv2
 import mysql.connector
 import json 
+import time
 from waitress import serve # 🚨 PENTING: Jangan lupa pip install waitress
 
 app = Flask(__name__)
 
 # --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE CLEVER CLOUD ---
 def get_db_connection():
-    return mysql.connector.connect(
-        host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
-        user="ujiqps88uip6czmm",
-        password="QViN9QYtHk0D1E2eIQUP",
-        database="brtes9fxxbfuwuurhjfx",
-        port=3306
-    )
+    # Sistem akan mencoba konek 3 kali sebelum menyerah (Anti-Crash)
+    for i in range(3):
+        try:
+            return mysql.connector.connect(
+                host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
+                user="ujiqps88uip6czmm",
+                password="QViN9QYtHk0D1E2eIQUP",
+                database="brtes9fxxbfuwuurhjfx",
+                port=3306,
+                ssl_disabled=True,
+                connect_timeout=10
+            )
+        except Exception as err:
+            if i < 2:
+                time.sleep(2) # Tunggu 2 detik lalu coba lagi
+                continue
+            else:
+                raise err
 
 # Tempat menyimpan memori wajah dan HAK AKSES PINTU sementara di RAM
 known_encodings = []
