@@ -210,11 +210,11 @@ def activate_admin():
         cursor = conn.cursor(dictionary=True)
         
         # 1. Cari antrean di tabel Admins (Manajer Web)
-        cursor.execute("SELECT id, username FROM admins WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT id, username FROM admins WHERE status = 'PENDING' ORDER BY id ASC LIMIT 1")
         pending_admin = cursor.fetchone()
         
         # 2. Cari antrean di tabel Users (Pegawai biasa yang UID-nya masih kosong)
-        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id ASC LIMIT 1")
         pending_user = cursor.fetchone()
         
         if not pending_admin and not pending_user:
