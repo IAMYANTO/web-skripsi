@@ -1,0 +1,43 @@
+
+version: '3.8'
+
+services:
+  # Backend Web Server & Frontend Delivery
+  app-web:
+    build: 
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: smartdoor-web
+    ports:
+      - "5000:5000"
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # Face Recognition & Access Control Server
+  access-control:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: smartdoor-access
+    ports:
+      - "5001:5000" # Map to 5001 since 5000 is used by app-web
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # Registrasi Wajah Service (Interaktif)
+  # Catatan: Harus dijalankan dengan akses X11/Webcam jika di lokal
+  face-registration:
+    build:
+      context: .
+      dockerfile: Dockerfile.registration
+    container_name: smartdoor-reg
+    network_mode: "host"
+    privileged: true
+    volumes:
+      - /dev/video0:/dev/video0
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=$DISPLAY
+      - PYTHONUNBUFFERED=1
