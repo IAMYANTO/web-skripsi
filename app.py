@@ -230,11 +230,11 @@ def activate_admin():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        cursor.execute("SELECT username FROM admins WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT username FROM admins WHERE status = 'PENDING' ORDER BY id ASC LIMIT 1")
         pending_admin = cursor.fetchone()
         
         # MENGGUNAKAN TRIM UNTUK MENANGKAP STRIP GAIB DAN SPASI KOSONG
-        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id ASC LIMIT 1")
         pending_user = cursor.fetchone()
         
         if not pending_admin and not pending_user:
