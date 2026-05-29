@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Registrasi Wajah - Smart Door</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; }
+        .card { border-radius: 15px; border: none; }
+        #video-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #video-element {
+            width: 100%;
+            height: auto;
+        }
+        #canvas-element {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5 mb-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <a href="/profile" class="btn btn-sm btn-secondary mb-3"><i class="fa-solid fa-arrow-left me-2"></i>Kembali ke Profil</a>
+                
+                <div class="card shadow p-4">
+                    <h4 class="fw-bold mb-4 text-center"><i class="fa-solid fa-camera-retro me-2"></i>Registrasi Wajah AI</h4>
+                    
+                    <div class="alert alert-info">
+                        <i class="fa-solid fa-circle-info me-2"></i><strong>Panduan:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Pastikan wajah terlihat jelas dan pencahayaan cukup.</li>
+                            <li>Posisikan wajah di tengah layar.</li>
+                            <li>Hanya boleh ada 1 wajah di depan kamera.</li>
+                        </ul>
+                    </div>
+
+                    <form id="regForm" class="mb-4">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Nama Lengkap</label>
+                                <input type="text" id="reg-name" class="form-control" required placeholder="Masukkan Nama">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Akses Pintu</label>
+                                <select id="reg-door" class="form-select" required>
+                                    <option value="door1">Pintu 1 (Utama)</option>
+                                    <option value="door2">Pintu 2 (Ruang Server)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div id="video-container" class="mb-4">
+                        <video id="video-element" autoplay playsinline></video>
+                        <canvas id="canvas-element"></canvas>
+                    </div>
+
+                    <div class="text-center">
+                        <button id="btn-start" class="btn btn-primary px-4 me-2"><i class="fa-solid fa-video me-2"></i>Buka Kamera</button>
+                        <button id="btn-capture" class="btn btn-success px-4" disabled><i class="fa-solid fa-camera me-2"></i>Ambil Foto</button>
+                    </div>
+                    
+                    <div id="status-msg" class="alert mt-4" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video-element');
+        const canvas = document.getElementById('canvas-element');
+        const btnStart = document.getElementById('btn-start');
+        const btnCapture = document.getElementById('btn-capture');
+        const statusMsg = document.getElementById('status-msg');
+        let stream = null;
+
+        btnStart.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                btnStart.disabled = true;
+                btnCapture.disabled = false;
+                showMsg('Kamera aktif. Silakan posisikan wajah Anda.', 'info');
+            } catch (err) {
+                showMsg('Gagal mengakses kamera: ' + err.message, 'danger');
+            }
+        });
+
+        btnCapture.addEventListener('click', () => {
+            const name = document.getElementById('reg-name').value;
+            const door = document.getElementById('reg-door').value;
+            
+            if(!name) {
+                showMsg('Harap isi Nama terlebih dahulu!', 'warning');
+                return;
+            }
+
+            btnCapture.disabled = true;
+            btnCapture.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Memproses...';
+            showMsg('Sedang mengekstrak matriks wajah, mohon tunggu...', 'info');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            fetch('/api/register_face_web', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    door: door,
+                    image: imageData
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    showMsg('✅ Sukses: ' + data.message, 'success');
+                    document.getElementById('reg-name').value = '';
+                    
+                    if(stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        video.srcObject = null;
+                        btnStart.disabled = false;
+                    }
+                } else {
+                    showMsg('❌ Gagal: ' + data.message, 'danger');
+                    btnCapture.disabled = false;
+                }
+                btnCapture.innerHTML = '<i class="fa-solid fa-camera me-2"></i>Ambil Foto';
+            })
+            .catch(err => {
+                showMsg('Terjadi kesalahan jaringan!', 'danger');
+                btnCapture.disabled = false;
+                btnCapture.innerHTML = '<i class="fa-solid fa-camera me-2"></i>Ambil Foto';
+            });
+        });
+
+        function showMsg(text, type) {
+            statusMsg.style.display = 'block';
+            statusMsg.className = 'alert mt-4 alert-' + type;
+            statusMsg.innerHTML = text;
+        }
+    </script>
+</body>
+</html>

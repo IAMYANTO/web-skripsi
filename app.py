@@ -10,6 +10,11 @@ import smtplib
 import datetime
 from email.mime.text import MIMEText
 from datetime import timedelta
+import face_recognition
+import cv2
+import numpy as np
+import base64
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
@@ -311,6 +316,57 @@ def profile():
     conn.close()
     email = user_data['email'] if user_data else ""
     return render_template("profile.html", username=username, role=session.get('role'), email=email)
+
+@app.route("/register_face_page")
+@login_required
+def register_face_page():
+    return render_template("register_face.html")
+
+@app.route("/api/register_face_web", methods=["POST"])
+@login_required
+def api_register_face_web():
+    data = request.json
+    name = data.get("name")
+    door = data.get("door")
+    image_data = data.get("image")
+    
+    if not all([name, door, image_data]):
+        return jsonify({"status": "error", "message": "Data tidak lengkap!"}), 400
+        
+    try:
+        header, encoded = image_data.split(",", 1)
+        image_bytes = base64.b64decode(encoded)
+        
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        face_locations = face_recognition.face_locations(rgb_img)
+        
+        if len(face_locations) == 0:
+            return jsonify({"status": "error", "message": "Wajah tidak terdeteksi!"}), 400
+        elif len(face_locations) > 1:
+            return jsonify({"status": "error", "message": "Terdeteksi lebih dari 1 wajah!"}), 400
+            
+        face_encoding = face_recognition.face_encodings(rgb_img, face_locations)[0]
+        encoding_str = json.dumps(face_encoding.tolist())
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (nama, face_encoding, allowed_door) VALUES (%s, %s, %s)", 
+                       (name, encoding_str, door))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        try:
+            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
+        except:
+            pass
+            
+        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route("/forgot_password", methods=["POST"])
 @login_required
