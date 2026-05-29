@@ -202,30 +202,42 @@ def check_rfid():
 # ==========================================
 @app.route("/activate_admin", methods=["POST"])
 def activate_admin():
-    # ... (Kodingan aslimu aman 100%, biarkan saja) ...
     data = request.json
     new_uid = data.get("new_uid")
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
+        
+        # 1. Cari antrean di tabel Admins (Manajer Web)
         cursor.execute("SELECT id, username FROM admins WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
         pending_admin = cursor.fetchone()
         
+        # 2. Cari antrean di tabel Users (Pegawai biasa yang UID-nya masih kosong)
+        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id DESC LIMIT 1")
+        pending_user = cursor.fetchone()
+        
+        if not pending_admin and not pending_user:
+            cursor.close()
+            conn.close()
+            return jsonify({"status": "FAILED", "message": "Tidak ada antrean kartu yang kosong!"})
+            
+        # 3. Eksekusi pengisian UID kartu ke tabel yang membutuhkan
         if pending_admin:
-            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'ACTIVE' WHERE id = %s", 
-                           (new_uid, pending_admin['id']))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Manajer: {pending_admin['username']}")
-            return jsonify({"status": "SUCCESS", "message": "Aktivasi Berhasil"})
-        else:
-            cursor.close()
-            conn.close()
-            return jsonify({"status": "FAILED", "message": "Tidak ada akun PENDING"})
+            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'ACTIVE' WHERE id = %s", (new_uid, pending_admin['id']))
+            print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Admin Web: {pending_admin['username']}")
+            
+        if pending_user:
+            cursor.execute("UPDATE users SET rfid_uid = %s WHERE id = %s", (new_uid, pending_user['id']))
+            print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Pegawai: {pending_user['nama']}")
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "SUCCESS", "message": "Aktivasi Berhasil"})
             
     except Exception as e:
+        print(f"❌ ERROR AKTIVASI: {e}")
         return jsonify({"status": "ERROR"}), 500
 
 if __name__ == "__main__":
