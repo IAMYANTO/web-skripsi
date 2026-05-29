@@ -1,62 +1,146 @@
-# Smart Door System - Microservices Architecture
+     1|# Smart Door System - Skripsi UNAIR
+     2|
+     3|Sistem keamanan pintu pintar berbasis **Face Recognition** (AI) dan **RFID** yang dirancang dengan arsitektur microservices untuk skalabilitas dan kemudahan deployment.
+     4|
+     5|## 🌟 Fitur Utama
+     6|
+     7|1.  **Dual Authentication**: Mendukung pengenalan wajah via ESP32-S3 CAM dan kartu RFID.
+     8|2.  **Multi-Door Management**: Dapat mengelola akses untuk lebih dari satu pintu (`door1`, `door2`, dst).
+     9|3.  **Real-time Monitoring**: Dashboard untuk memantau log akses secara langsung.
+    10|4.  **Remote Bypass**: Membuka pintu secara manual melalui interface web oleh Admin.
+    11|5.  **Role-based Access**: Perbedaan hak akses antara Admin (Superuser) dan User biasa.
+    12|6.  **Self-Registration**: Registrasi wajah secara lokal yang terintegrasi langsung ke Cloud Database.
+    13|7.  **OTP Verification**: Sistem registrasi admin yang aman dengan verifikasi OTP via email (integrasi Google Apps Script).
+    14|8.  **Automated Logging**: Pencatatan otomatis setiap upaya akses, termasuk foto wajah yang tidak dikenal.
+    15|
+    16|---
+    17|
+    18|## 🏗️ Arsitektur Sistem
+    19|
+    20|Project ini dibagi menjadi 3 service utama yang berjalan di dalam container Docker:
+    21|
+    22|### 1. Web Dashboard (`app-web`)
+    23|*   **Port**: 5000
+    24|*   **Teknologi**: Flask (Python), Jinja2, MySQL.
+    25|*   **Fungsi**: Menangani login admin, manajemen user, ekspor laporan CSV, dan aktivasi kartu/akun baru.
+    26|
+    27|### 2. AI Access Control (`access-control`)
+    28|*   **Port**: 5001
+    29|*   **Teknologi**: Face Recognition API (dlib), OpenCV, Waitress (Production Server).
+    30|*   **Fungsi**: Mesin pemroses utama untuk validasi wajah dan RFID yang dikirim oleh perangkat hardware (ESP32).
+    31|
+    32|### 3. Face Registration (`face-registration`)
+    33|*   **Mode**: Interaktif (Webcam Host)
+    34|*   **Fungsi**: Tool khusus untuk mendaftarkan user baru dengan memindai struktur wajah dan menyimpannya ke database.
+    35|
+    36|---
+    37|
+    38|## 🗄️ Database Schema (MySQL)
+    39|
+    40|Sistem ini menggunakan beberapa tabel utama di Clever Cloud:
+    41|*   `admins`: Menyimpan data kredensial pengelola, role, dan UID kartu manajer.
+    42|*   `users`: Menyimpan data pegawai, encoding wajah (JSON), dan hak izin pintu.
+    43|*   `access_logs`: Mencatat riwayat masuk (Waktu, Nama, Metode, Status).
+    44|*   `remote_control`: Menyimpan status perintah buka pintu jarak jauh (Bypass).
+    45|
+    46|---
+    47|
+    48|
+## 🔄 Alur Sistem (Flowcharts)
 
-Sistem Smart Door berbasis AI Face Recognition dan RFID menggunakan arsitektur Microservices yang dikemas dalam Docker.
+### 1. Alur Autentikasi (Face & RFID)
+Alur ketika user mencoba masuk melalui perangkat hardware di pintu.
 
-## 📂 Struktur Project
+```mermaid
+sequenceDiagram
+    participant HW as Perangkat ESP32
+    participant SVR as Access Control (Port 5001)
+    participant DB as MySQL (Clever Cloud)
+    participant APP as Web Backend (Port 5000)
 
-| File / Folder | Peran | Deskripsi |
-| :--- | :--- | :--- |
-| `templates/` | **Frontend** | Berisi file HTML (Jinja2) untuk interface dashboard web. |
-| `app.py` | **Web Backend** | Main server untuk dashboard, manajemen user, dan log akses. |
-| `server.py` | **Access Control** | Service AI untuk validasi Wajah dan RFID. Bertindak sebagai Gatekeeper. |
-| `tambah_wajah.py`| **Service Registrasi** | Tool interaktif untuk mengambil sampel wajah dan menyimpannya ke database. |
-| `Dockerfile.*` | **Container Config** | Konfigurasi isolasi environment untuk masing-masing service. |
-| `docker-compose.yml`| **Orchestrator** | Menjalankan seluruh sistem dalam satu command. |
+    alt Face Recognition
+        HW->>SVR: Kirim Gambar (POST /check_face)
+        SVR->>SVR: Proses AI (Face Encoding)
+        SVR->>SVR: Cocokkan dengan RAM Cache
+    else RFID Access
+        HW->>SVR: Kirim UID Kartu (POST /check_rfid)
+        SVR->>DB: Query User/Admin by UID
+        DB-->>SVR: Data User Found
+    end
 
----
-
-## ⚙️ Alur Kerja (Workflow)
-
-### 1. Registrasi User
-1. Admin membuka `tambah_wajah.py` (melalui service `face-registration`).
-2. Kamera akan aktif, user memosisikan wajah, dan menekan tombol 'S'.
-3. Sistem menghitung *Face Encoding* (matriks wajah) dan menyimpannya ke MySQL (Clever Cloud) beserta hak akses pintu.
-4. Service akan otomatis memicu `server.py` untuk me-reload memori wajah dari database.
-
-### 2. Proses Masuk (Face Recognition)
-1. ESP32-S3 CAM mengirimkan gambar ke endpoint `server.py` (`/check_face`).
-2. `server.py` mencocokkan wajah dengan database lokal (RAM).
-3. Jika wajah dikenal dan memiliki hak akses pada `door_id` tersebut, server mengembalikan `FACE_OK`.
-4. Log akses akan tercatat secara otomatis ke database.
-
-### 3. Proses Masuk (RFID)
-1. ESP32 RFID mengirimkan UID kartu ke `server.py` (`/check_rfid`).
-2. Server mengecek validitas kartu dan izin pintu.
-3. Jika kartu terdaftar dan sesuai pintu, akses diberikan (`VALID`).
-
-### 4. Monitoring & Management
-1. Admin mengakses Dashboard melalui `app.py` (Port 5000).
-2. Admin bisa melihat log real-time, membuka pintu jarak jauh (Remote Bypass), dan mengelola data user/admin.
-
----
-
-## 🚀 Cara Menjalankan
-
-### Prasyarat
-- Docker & Docker Compose terinstall.
-- Koneksi Internet (untuk database Clever Cloud).
-
-### Menjalankan Seluruh Sistem
-```bash
-docker-compose up --build
+    SVR-->>HW: Return Hasil (FACE_OK / VALID)
+    SVR->>DB: Simpan Log Akses (access_logs)
+    Note over HW, APP: Data log muncul di Dashboard secara Real-time
 ```
 
-### Akses
-- **Dashboard Web**: `http://localhost:5000`
-- **Access Control API**: `http://localhost:5001`
+### 2. Alur Registrasi Wajah
+Alur pendaftaran user baru agar wajahnya dikenali sistem.
 
----
+```mermaid
+graph TD
+    A[Buka Service Registrasi] --> B{Ambil Foto Kamera}
+    B -->|Tekan S| C[Hitung Face Encoding]
+    B -->|Tekan Q| D[Batal]
+    C --> E[Simpan ke DB users]
+    E --> F[Picu /reload_faces ke Server]
+    F --> G[Server Update Memori RAM]
+    G --> H[User Siap Digunakan]
+```
 
-## 🛠️ Catatan Penting
-- **Database**: Project ini menggunakan MySQL di Clever Cloud. Pastikan kredensial di dalam file `.py` sudah benar.
-- **Hardware**: ESP32 harus diarahkan ke IP Host/Server yang menjalankan Docker ini pada port 5001.
+### 3. Alur Remote Bypass (Buka via Web)
+Alur ketika admin membuka pintu dari jarak jauh melalui dashboard.
+
+```mermaid
+sequenceDiagram
+    participant AD as Admin (Browser)
+    participant APP as Web Backend (Port 5000)
+    participant DB as MySQL (Clever Cloud)
+    participant HW as Perangkat ESP32
+
+    AD->>APP: Klik Tombol "Buka Pintu"
+    APP->>DB: Update remote_control (is_open=TRUE)
+    loop Setiap 1-3 Detik
+        HW->>APP: Cek Status (GET /check_bypass_status)
+        APP->>DB: Baca Table remote_control
+        DB-->>APP: is_open = TRUE
+        APP-->>HW: Return "OPEN"
+        APP->>DB: Reset is_open=FALSE
+    end
+    HW->>HW: Aktifkan Solenoid Pintu
+```
+
+
+## 🚀 Deployment ke Server S2
+    49|
+    50|Sistem ini dioptimalkan untuk berjalan di **Server S2 (31.97.49.12)** dengan konfigurasi berikut:
+    51|
+    52|### 1. Clone & Setup
+    53|```bash
+    54|git clone -b production https://github.com/IAMYANTO/web-skripsi.git
+    55|cd web-skripsi
+    56|```
+    57|
+    58|### 2. Environment Variables
+    59|Pastikan kredensial database di `app.py`, `server.py`, dan `tambah_wajah.py` sudah sesuai. 
+    60|*Note: Disarankan untuk menggunakan file .env di masa depan.*
+    61|
+    62|### 3. Run with Docker Compose
+    63|```bash
+    64|docker-compose up -d --build
+    65|```
+    66|
+    67|### 4. Port Forwarding / Ingress
+    68|Pastikan port **5000** (Web) dan **5001** (API) terbuka di firewall server atau di-routing melalui domain jika menggunakan Reverse Proxy (seperti Caddy/Nginx yang ada di S1).
+    69|
+    70|---
+    71|
+    72|## 🔌 Integrasi Hardware (ESP32)
+    73|
+    74|Perangkat ESP32 harus dikonfigurasi untuk menembak IP Server S2:
+    75|*   **Face API**: `http://31.97.49.12:5001/check_face?door_id=door1`
+    76|*   **RFID API**: `http://31.97.49.12:5001/check_rfid` (Method: POST)
+    77|*   **Bypass Check**: `http://31.97.49.12:5000/check_bypass_status?door_id=door1`
+    78|
+    79|---
+    80|*Dibuat untuk kebutuhan Skripsi - Universitas Airlangga (UNAIR).*
+    81|
