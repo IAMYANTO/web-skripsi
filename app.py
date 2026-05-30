@@ -16,6 +16,8 @@ import numpy as np
 import base64
 import requests
 import time
+import socket
+CACHED_DB_IP = None
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
@@ -26,11 +28,18 @@ EMAIL_SENDER = "smartdoor.unair@gmail.com"
 EMAIL_PASSWORD = "plfcwufhkgijwzjr"        
 
 def get_db_connection():
-    # Sistem akan mencoba konek 3 kali sebelum menyerah (Anti-Crash)
-    for i in range(3):
+    global CACHED_DB_IP
+    
+    # Kita hajar sampai 5 kali percobaan biar kebal badai!
+    for i in range(5):
         try:
+            # 1. BYPASS DNS: Paksa Python nyari IP aslinya kalau belum hafal
+            if not CACHED_DB_IP:
+                CACHED_DB_IP = socket.gethostbyname("brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com")
+            
+            # 2. Konek LANGSUNG KE IP-NYA (Bukan ke nama domain)
             return mysql.connector.connect(
-                host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
+                host=CACHED_DB_IP, 
                 user="ujiqps88uip6czmm",
                 password="QViN9QYtHk0D1E2eIQUP",
                 database="brtes9fxxbfuwuurhjfx",
@@ -39,8 +48,9 @@ def get_db_connection():
                 connect_timeout=10
             )
         except Exception as err:
-            if i < 2:
-                time.sleep(2) # Tunggu 2 detik lalu coba lagi
+            CACHED_DB_IP = None # Reset hafalan IP kalau ternyata Clever Cloud ganti IP
+            if i < 4:
+                time.sleep(2) # Kasih nafas 2 detik
                 continue
             else:
                 raise err
