@@ -1,146 +1,126 @@
-     1|# Smart Door System - Skripsi UNAIR
-     2|
-     3|Sistem keamanan pintu pintar berbasis **Face Recognition** (AI) dan **RFID** yang dirancang dengan arsitektur microservices untuk skalabilitas dan kemudahan deployment.
-     4|
-     5|## 🌟 Fitur Utama
-     6|
-     7|1.  **Dual Authentication**: Mendukung pengenalan wajah via ESP32-S3 CAM dan kartu RFID.
-     8|2.  **Multi-Door Management**: Dapat mengelola akses untuk lebih dari satu pintu (`door1`, `door2`, dst).
-     9|3.  **Real-time Monitoring**: Dashboard untuk memantau log akses secara langsung.
-    10|4.  **Remote Bypass**: Membuka pintu secara manual melalui interface web oleh Admin.
-    11|5.  **Role-based Access**: Perbedaan hak akses antara Admin (Superuser) dan User biasa.
-    12|6.  **Self-Registration**: Registrasi wajah secara lokal yang terintegrasi langsung ke Cloud Database.
-    13|7.  **OTP Verification**: Sistem registrasi admin yang aman dengan verifikasi OTP via email (integrasi Google Apps Script).
-    14|8.  **Automated Logging**: Pencatatan otomatis setiap upaya akses, termasuk foto wajah yang tidak dikenal.
-    15|
-    16|---
-    17|
-    18|## 🏗️ Arsitektur Sistem
-    19|
-    20|Project ini dibagi menjadi 3 service utama yang berjalan di dalam container Docker:
-    21|
-    22|### 1. Web Dashboard (`app-web`)
-    23|*   **Port**: 5000
-    24|*   **Teknologi**: Flask (Python), Jinja2, MySQL.
-    25|*   **Fungsi**: Menangani login admin, manajemen user, ekspor laporan CSV, dan aktivasi kartu/akun baru.
-    26|
-    27|### 2. AI Access Control (`access-control`)
-    28|*   **Port**: 5001
-    29|*   **Teknologi**: Face Recognition API (dlib), OpenCV, Waitress (Production Server).
-    30|*   **Fungsi**: Mesin pemroses utama untuk validasi wajah dan RFID yang dikirim oleh perangkat hardware (ESP32).
-    31|
-    32|### 3. Face Registration (`face-registration`)
-    33|*   **Mode**: Interaktif (Webcam Host)
-    34|*   **Fungsi**: Tool khusus untuk mendaftarkan user baru dengan memindai struktur wajah dan menyimpannya ke database.
-    35|
-    36|---
-    37|
-    38|## 🗄️ Database Schema (MySQL)
-    39|
-    40|Sistem ini menggunakan beberapa tabel utama di Clever Cloud:
-    41|*   `admins`: Menyimpan data kredensial pengelola, role, dan UID kartu manajer.
-    42|*   `users`: Menyimpan data pegawai, encoding wajah (JSON), dan hak izin pintu.
-    43|*   `access_logs`: Mencatat riwayat masuk (Waktu, Nama, Metode, Status).
-    44|*   `remote_control`: Menyimpan status perintah buka pintu jarak jauh (Bypass).
-    45|
-    46|---
-    47|
-    48|
-## 🔄 Alur Sistem (Flowcharts)
+# Smart Door System - Skripsi UNAIR
 
-### 1. Alur Autentikasi (Face & RFID)
-Alur ketika user mencoba masuk melalui perangkat hardware di pintu.
+Sistem keamanan pintu pintar berbasis **AI Face Recognition (Pengenalan Wajah)** dan **RFID** yang dirancang menggunakan arsitektur microservices untuk skalabilitas, stabilitas, dan kemudahan proses update (*CI/CD*).
+
+---
+
+## 🌟 Fitur Utama
+
+1.  **Dual Authentication**: Membuka pintu bisa menggunakan wajah (kamera ESP32) atau menempelkan kartu RFID.
+2.  **Web Registration (New)**: Mendaftarkan wajah baru sangat mudah, langsung lewat browser laptop/HP tanpa perlu aplikasi tambahan.
+3.  **Real-time Dashboard**: Pantau siapa saja yang masuk/keluar, jam berapa, dan pakai metode apa secara *real-time*.
+4.  **Buka Pintu Jarak Jauh**: Admin bisa membuka pintu dari web *dashboard* di mana pun berada.
+5.  **Role-based Access**: Admin bisa melihat semua log pintu, User hanya bisa melihat log miliknya sendiri.
+6.  **Auto-Update System (CI/CD)**: Otomatis mem-build dan memperbarui server tiap kali ada perubahan kode di GitHub.
+7.  **Connection Pooling**: Anti-bocor dan sangat stabil meski koneksi ke database *Clever Cloud* putus-nyambung.
+
+---
+
+## 🏗️ Arsitektur Server (Kubernetes K3s)
+
+Sistem ini berjalan di server **S2 (Ubuntu 24.04)** dengan orkestrasi **K3s**. Terdiri dari 2 service utama yang saling bekerja sama namun terpisah secara tugas:
+
+### 1. Web Backend (`app-web`)
+*   **Akses**: `https://iot.vps.prakhya.id`
+*   **Fungsi Utama**: Menampilkan website (Dashboard, Login, Profil), manajemen user, pendaftaran wajah via webcam browser, ekspor PDF/CSV, dan integrasi Email OTP.
+*   **Di Balik Layar**: Flask, MySQL Connection Pooling, Waitress.
+
+### 2. Access Control (`access-control`)
+*   **Akses**: `https://access-control-iot.vps.prakhya.id`
+*   **Fungsi Utama**: Berkomunikasi langsung dengan perangkat keras (ESP32) di pintu. Menerima jepretan foto dari pintu, mengeceknya dengan AI, dan memberi instruksi "Buka" atau "Tolak" ke alat.
+*   **Di Balik Layar**: Face Recognition API (dlib), OpenCV.
+
+---
+
+## 🔄 Alur Sistem (Flowchart Sederhana)
+
+### 1. Cara Kerja Pintu Otomatis (Face & RFID)
+*Bagaimana alat di pintu berkomunikasi dengan server saat ada orang yang mau masuk.*
 
 ```mermaid
 sequenceDiagram
-    participant HW as Perangkat ESP32
-    participant SVR as Access Control (Port 5001)
-    participant DB as MySQL (Clever Cloud)
-    participant APP as Web Backend (Port 5000)
+    participant Pintu as Perangkat Pintu (ESP32)
+    participant Server as Server AI (Access Control)
+    participant DB as Database Utama
 
-    alt Face Recognition
-        HW->>SVR: Kirim Gambar (POST /check_face)
-        SVR->>SVR: Proses AI (Face Encoding)
-        SVR->>SVR: Cocokkan dengan RAM Cache
-    else RFID Access
-        HW->>SVR: Kirim UID Kartu (POST /check_rfid)
-        SVR->>DB: Query User/Admin by UID
-        DB-->>SVR: Data User Found
+    alt Pakai Wajah
+        Pintu->>Server: "Ini ada foto wajah orang, tolong cek!"
+        Server->>Server: AI memindai & mencari kecocokan wajah
+    else Pakai Kartu
+        Pintu->>Server: "Kartu ini ditempel, UID: 12345, tolong cek!"
+        Server->>DB: "Cari kartu 12345 di data pegawai"
+        DB-->>Server: "Ditemukan!"
     end
 
-    SVR-->>HW: Return Hasil (FACE_OK / VALID)
-    SVR->>DB: Simpan Log Akses (access_logs)
-    Note over HW, APP: Data log muncul di Dashboard secara Real-time
+    alt Dikenali
+        Server-->>Pintu: "Aman, Buka Pintunya!"
+        Server->>DB: Catat di Riwayat: "Masuk Berhasil"
+    else Tidak Dikenali
+        Server-->>Pintu: "Tolak! Jangan Buka!"
+        Server->>DB: Catat di Riwayat: "Ditolak / Gagal"
+    end
 ```
 
-### 2. Alur Registrasi Wajah
-Alur pendaftaran user baru agar wajahnya dikenali sistem.
+### 2. Cara Kerja Pendaftaran Wajah Baru (Lewat Web)
+*Bagaimana HRD/Admin menambahkan wajah pegawai baru.*
 
 ```mermaid
 graph TD
-    A[Buka Service Registrasi] --> B{Ambil Foto Kamera}
-    B -->|Tekan S| C[Hitung Face Encoding]
-    B -->|Tekan Q| D[Batal]
-    C --> E[Simpan ke DB users]
-    E --> F[Picu /reload_faces ke Server]
-    F --> G[Server Update Memori RAM]
-    G --> H[User Siap Digunakan]
+    A[Buka Web Dashboard] --> B[Klik 'Registrasi Wajah AI']
+    B --> C[Isi Nama Pegawai & Izinkan Akses Kamera]
+    C --> D[Posisikan wajah di depan kamera Laptop/HP]
+    D --> E[Klik 'Daftar Wajah']
+    E --> F[Web mengubah gambar jadi Sandi AI]
+    F --> G[Sandi AI disimpan permanen ke Database]
+    G --> H[Web menyuruh Server Pintu untuk Update Data]
+    H --> I[Selesai! Wajah pegawai langsung bisa dipakai di pintu]
+    
+    style E fill:#4caf50,stroke:#333,stroke-width:2px,color:#fff
 ```
 
-### 3. Alur Remote Bypass (Buka via Web)
-Alur ketika admin membuka pintu dari jarak jauh melalui dashboard.
+### 3. Cara Buka Pintu Jarak Jauh (Remote Bypass)
+*Bagaimana Admin membukakan pintu untuk tamu dari lantai atas.*
 
 ```mermaid
 sequenceDiagram
-    participant AD as Admin (Browser)
-    participant APP as Web Backend (Port 5000)
-    participant DB as MySQL (Clever Cloud)
-    participant HW as Perangkat ESP32
+    participant Admin as Browser Admin
+    participant Web as Web Backend
+    participant DB as Database Utama
+    participant Pintu as Perangkat Pintu (ESP32)
 
-    AD->>APP: Klik Tombol "Buka Pintu"
-    APP->>DB: Update remote_control (is_open=TRUE)
-    loop Setiap 1-3 Detik
-        HW->>APP: Cek Status (GET /check_bypass_status)
-        APP->>DB: Baca Table remote_control
-        DB-->>APP: is_open = TRUE
-        APP-->>HW: Return "OPEN"
-        APP->>DB: Reset is_open=FALSE
+    Admin->>Web: Klik Tombol "Buka Pintu Sekarang"
+    Web->>DB: Tulis Perintah: "Status Pintu = Minta Buka"
+    
+    loop Setiap 2 Detik
+        Pintu->>Web: "Halo, ada perintah buka pintu gak?"
+        Web->>DB: Cek Perintah...
+        DB-->>Web: "Ada! Status Minta Buka."
+        Web-->>Pintu: "ADA! SEGERA BUKA!"
+        Web->>DB: Hapus perintah (kembalikan ke normal)
     end
-    HW->>HW: Aktifkan Solenoid Pintu
+    
+    Pintu->>Pintu: Cetek! Kunci terbuka.
 ```
 
+---
 
-## 🚀 Deployment ke Server S2
-    49|
-    50|Sistem ini dioptimalkan untuk berjalan di **Server S2 (31.97.49.12)** dengan konfigurasi berikut:
-    51|
-    52|### 1. Clone & Setup
-    53|```bash
-    54|git clone -b production https://github.com/IAMYANTO/web-skripsi.git
-    55|cd web-skripsi
-    56|```
-    57|
-    58|### 2. Environment Variables
-    59|Pastikan kredensial database di `app.py`, `server.py`, dan `tambah_wajah.py` sudah sesuai. 
-    60|*Note: Disarankan untuk menggunakan file .env di masa depan.*
-    61|
-    62|### 3. Run with Docker Compose
-    63|```bash
-    64|docker-compose up -d --build
-    65|```
-    66|
-    67|### 4. Port Forwarding / Ingress
-    68|Pastikan port **5000** (Web) dan **5001** (API) terbuka di firewall server atau di-routing melalui domain jika menggunakan Reverse Proxy (seperti Caddy/Nginx yang ada di S1).
-    69|
-    70|---
-    71|
-    72|## 🔌 Integrasi Hardware (ESP32)
-    73|
-    74|Perangkat ESP32 harus dikonfigurasi untuk menembak IP Server S2:
-    75|*   **Face API**: `http://31.97.49.12:5001/check_face?door_id=door1`
-    76|*   **RFID API**: `http://31.97.49.12:5001/check_rfid` (Method: POST)
-    77|*   **Bypass Check**: `http://31.97.49.12:5000/check_bypass_status?door_id=door1`
-    78|
-    79|---
-    80|*Dibuat untuk kebutuhan Skripsi - Universitas Airlangga (UNAIR).*
-    81|
+## 🚀 Panduan Pembaruan Sistem (Auto-Deploy)
+
+Aplikasi ini sudah dipasang **Pipeline Otomatis (GitHub Actions)**. 
+Artinya, setiap kali Anda memperbaiki kode (*coding*) di komputer lokal lalu melakukan **push ke branch `production`**, server akan diperbarui secara otomatis tanpa perlu disentuh.
+
+```bash
+# 1. Tambah file yang diedit
+git add .
+
+# 2. Simpan perubahan
+git commit -m "update tampilan dashboard"
+
+# 3. Kirim ke GitHub (Server langsung ter-update!)
+git push origin production
+```
+
+Jika karena suatu hal GitHub Actions mati, Admin masih bisa menekan tombol **Update Sistem** dari Web Dashboard (Menu Kanan Atas) untuk memaksa server memperbarui dirinya sendiri.
+
+---
+*Dibuat untuk kebutuhan Skripsi - Universitas Airlangga (UNAIR).*
