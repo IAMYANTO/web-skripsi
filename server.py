@@ -166,14 +166,7 @@ def check_rfid():
     print(f"\n💳 [Menerima Tap Kartu] UID: {uid_sent} dari {door_request}")
     
     try:
-        conn = mysql.connector.connect(
-            host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
-            user="ujiqps88uip6czmm",
-            password="QViN9QYtHk0D1E2eIQUP",
-            database="brtes9fxxbfuwuurhjfx",
-            port=3306,
-            connection_timeout=5
-        )
+        conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
         # 1. Cari di tabel users (Pegawai Biasa)
