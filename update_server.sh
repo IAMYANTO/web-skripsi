@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Memulai proses pembaruan aplikasi..." > update.log
+echo "Memulai proses pembaruan sistem..." > update.log
 date >> update.log
 
 cd /home/gemini/web-skripsi
@@ -17,13 +17,13 @@ sudo docker build -t smartdoor-access:latest -f Dockerfile.server . >> update.lo
 echo "Memberi tag pada Face Registration..." >> update.log
 sudo docker tag smartdoor-access:latest smartdoor-reg:latest >> update.log 2>&1
 
-echo "Mengimpor Image ke Kubernetes..." >> update.log
+echo "Mengimpor Image ..." >> update.log
 sudo docker save smartdoor-web:latest | sudo k3s ctr images import - >> update.log 2>&1
 sudo docker save smartdoor-access:latest | sudo k3s ctr images import - >> update.log 2>&1
 sudo docker save smartdoor-reg:latest | sudo k3s ctr images import - >> update.log 2>&1
 
-echo "Melakukan Restart Pods di Kubernetes..." >> update.log
+echo "Melakukan Restart..." >> update.log
 sudo kubectl rollout restart deployment -n smart-door-skripsi >> update.log 2>&1
 
-echo "SELESAI! Aplikasi berhasil diperbarui." >> update.log
+echo "SELESAI! Sistem berhasil diperbarui." >> update.log
 date >> update.log
