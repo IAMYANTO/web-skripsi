@@ -5,17 +5,26 @@ import cv2
 import mysql.connector
 import json 
 import time
+import socket
+CACHED_DB_IP = None
 from waitress import serve # 🚨 PENTING: Jangan lupa pip install waitress
 
 app = Flask(__name__)
 
 # --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE CLEVER CLOUD ---
 def get_db_connection():
-    # Sistem akan mencoba konek 3 kali sebelum menyerah (Anti-Crash)
-    for i in range(3):
+    global CACHED_DB_IP
+    
+    # 5 kali percobaan
+    for i in range(5):
         try:
+            # 1. BYPASS DNS: Paksa Python nyari IP aslinya kalau belum hafal
+            if not CACHED_DB_IP:
+                CACHED_DB_IP = socket.gethostbyname("brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com")
+            
+            # 2. Konek LANGSUNG KE IP-NYA (Bukan ke nama domain)
             return mysql.connector.connect(
-                host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
+                host=CACHED_DB_IP, 
                 user="ujiqps88uip6czmm",
                 password="QViN9QYtHk0D1E2eIQUP",
                 database="brtes9fxxbfuwuurhjfx",
@@ -24,8 +33,9 @@ def get_db_connection():
                 connect_timeout=10
             )
         except Exception as err:
-            if i < 2:
-                time.sleep(2) # Tunggu 2 detik lalu coba lagi
+            CACHED_DB_IP = None # Reset hafalan IP kalau ternyata Clever Cloud ganti IP
+            if i < 4:
+                time.sleep(2) # Kasih nafas 2 detik
                 continue
             else:
                 raise err
