@@ -21,41 +21,66 @@ CACHED_DB_IP = None
 
 app = Flask(__name__)
 app.secret_key = 'skripsi_unair_hebat' 
-app.permanent_session_lifetime = timedelta(minutes=15) 
+app.permanent_session_lifetime = timedelta(minutes=15)
 
 LAST_SEEN_HARDWARE = {}
 EMAIL_SENDER = "smartdoor.unair@gmail.com" 
-EMAIL_PASSWORD = "plfcwufhkgijwzjr"        
+EMAIL_PASSWORD = "plfcwufhkgijwzjr"
+
+from mysql.connector import pooling
+import socket
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+# Caching IP DNS
+CACHED_DB_IP = None
+
+def get_db_pool():
+    global CACHED_DB_IP
+    try:
+        if not CACHED_DB_IP:
+            CACHED_DB_IP = socket.gethostbyname("brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com")
+            
+        return pooling.MySQLConnectionPool(
+            pool_name="smartdoor_pool",
+            pool_size=5,  # Siapkan 5 koneksi standby
+            pool_reset_session=True, # Otomatis reset session per query
+            host=CACHED_DB_IP,
+            user="ujiqps88uip6czmm",
+            password="QViN9QYtHk0D1E2eIQUP",
+            database="brtes9fxxbfuwuurhjfx",
+            port=3306,
+            ssl_disabled=True,
+            connect_timeout=15
+        )
+    except Exception as err:
+        logging.error(f"Gagal inisialisasi connection pool: {err}")
+        return None
+
+# Inisialisasi pool secara global
+db_pool = get_db_pool()
 
 def get_db_connection():
-    global CACHED_DB_IP
-    
-    # Kita hajar sampai 5 kali percobaan biar kebal badai!
-    for i in range(5):
+    global db_pool
+    # Kita hajar sampai 3 kali percobaan mengambil koneksi dari pool
+    for i in range(3):
         try:
-            # 1. BYPASS DNS: Paksa Python nyari IP aslinya kalau belum hafal
-            if not CACHED_DB_IP:
-                CACHED_DB_IP = socket.gethostbyname("brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com")
-            
-            # 2. Konek LANGSUNG KE IP-NYA (Bukan ke nama domain)
-            return mysql.connector.connect(
-                host=CACHED_DB_IP, 
-                user="ujiqps88uip6czmm",
-                password="QViN9QYtHk0D1E2eIQUP",
-                database="brtes9fxxbfuwuurhjfx",
-                port=3306,
-                ssl_disabled=True,
-                connect_timeout=10
-            )
+            if not db_pool:
+                db_pool = get_db_pool()
+                
+            conn = db_pool.get_connection()
+            if conn.is_connected():
+                return conn
         except Exception as err:
-            CACHED_DB_IP = None # Reset hafalan IP kalau ternyata Clever Cloud ganti IP
-            if i < 4:
-                time.sleep(2) # Kasih nafas 2 detik
-                continue
-            else:
-                raise err
+            logging.warning(f"Koneksi Clever Cloud bermasalah (Percobaan {i+1}/3)... Coba lagi. Error: {err}")
+            time.sleep(2)  # Jeda 2 detik sebelum coba lagi
+    
+    logging.error("Database mati total setelah 3x percobaan dari Pool.")
+    return None
 
 def login_required(f):
+    from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'logged_in' not in session:
