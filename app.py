@@ -295,15 +295,15 @@ def activate_admin():
 def api_hardware_status():
     door_id = request.args.get("door_id", "door1").lower()
     try:
-        # 🚨 BACA DETAK JANTUNG DARI FILE TEKS
+        # 🚨 OBAT 2: Baca Detak Jantung dari File Teks Fisik!
         with open(f"ping_hardware_{door_id}.txt", "r") as f:
             last_seen = float(f.read().strip())
         
-        # Kalau ping terakhir kurang dari 35 detik yang lalu = ONLINE
+        # Kalau ping terakhir kurang dari 35 detik yang lalu = ONLINE hijau!
         if (time.time() - last_seen) < 35:
             return jsonify({"status": "ONLINE"}), 200
     except Exception:
-        pass # Kalau file belum ada, anggap offline
+        pass 
         
     return jsonify({"status": "OFFLINE"}), 200
 
