@@ -236,7 +236,7 @@ def trigger_bypass():
 def check_bypass_status():
     door_id = request.args.get("door_id", "door1").lower()
     
-    # 🚨 TULIS DETAK JANTUNG KE FILE TEKS
+    # 🚨 OBAT 1: Tulis Detak Jantung ESP32 ke File Teks Fisik!
     with open(f"ping_hardware_{door_id}.txt", "w") as f:
         f.write(str(time.time()))
         
@@ -254,7 +254,8 @@ def check_bypass_status():
         cursor.close()
         conn.close()
         return jsonify({"status": "CLOSED"}), 200
-    except Exception as e: return jsonify({"error": str(e)}), 500
+    except Exception as e: 
+        return jsonify({"error": str(e)}), 500
 
 # === API SAKTI AKTIVASI AMAN KEBANTAI SPASI GAIB ===
 @app.route("/activate_admin", methods=["POST"])
