@@ -248,4 +248,4 @@ if __name__ == "__main__":
     print("🚀 SERVER AI BERJALAN DI MODE PRODUKSI (WAITRESS) 🚀")
     print("====================================================")
     # 🚨 SUNTIKAN: Buka 4 Kasir sekaligus biar gempuran 2 pintu gak bikin antre/error
-    serve(app, host="0.0.0.0", port=5001, threads=4)
+    serve(app, host="0.0.0.0", port=5000, threads=4)
