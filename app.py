@@ -17,6 +17,7 @@ import base64
 import requests
 import time
 import socket
+import os
 CACHED_DB_IP = None
 
 app = Flask(__name__)
@@ -63,20 +64,17 @@ db_pool = get_db_pool()
 
 def get_db_connection():
     global db_pool
-    # Kita hajar sampai 3 kali percobaan mengambil koneksi dari pool
     for i in range(3):
         try:
             if not db_pool:
                 db_pool = get_db_pool()
-                
             conn = db_pool.get_connection()
-            if conn.is_connected():
-                return conn
+            # 🚨 ILMU HITAM: Cek & sambung ulang otomatis kalau diputus Clever Cloud!
+            conn.ping(reconnect=True, attempts=3, delay=2) 
+            return conn
         except Exception as err:
-            logging.warning(f"Koneksi Clever Cloud bermasalah (Percobaan {i+1}/3)... Coba lagi. Error: {err}")
-            time.sleep(2)  # Jeda 2 detik sebelum coba lagi
-    
-    logging.error("Database mati total setelah 3x percobaan dari Pool.")
+            logging.warning(f"Koneksi DB bermasalah... Coba lagi.")
+            time.sleep(2)
     return None
 
 def login_required(f):
@@ -237,8 +235,11 @@ def trigger_bypass():
 @app.route("/check_bypass_status", methods=["GET"])
 def check_bypass_status():
     door_id = request.args.get("door_id", "door1").lower()
-    global LAST_SEEN_HARDWARE
-    LAST_SEEN_HARDWARE[door_id] = datetime.datetime.now()
+    
+    # 🚨 TULIS DETAK JANTUNG KE FILE TEKS
+    with open(f"ping_hardware_{door_id}.txt", "w") as f:
+        f.write(str(time.time()))
+        
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -292,11 +293,17 @@ def activate_admin():
 @app.route("/api/hardware_status", methods=["GET"])
 def api_hardware_status():
     door_id = request.args.get("door_id", "door1").lower()
-    global LAST_SEEN_HARDWARE
-    last_seen = LAST_SEEN_HARDWARE.get(door_id)
-    if last_seen:
-        if (datetime.datetime.now() - last_seen).total_seconds() < 35:
+    try:
+        # 🚨 BACA DETAK JANTUNG DARI FILE TEKS
+        with open(f"ping_hardware_{door_id}.txt", "r") as f:
+            last_seen = float(f.read().strip())
+        
+        # Kalau ping terakhir kurang dari 35 detik yang lalu = ONLINE
+        if (time.time() - last_seen) < 35:
             return jsonify({"status": "ONLINE"}), 200
+    except Exception:
+        pass # Kalau file belum ada, anggap offline
+        
     return jsonify({"status": "OFFLINE"}), 200
 
 @app.route("/log_access", methods=["POST"])
