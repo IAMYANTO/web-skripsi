@@ -1,3 +1,8 @@
 flask
 mysql-connector-python
 gunicorn
+face_recognition
+numpy
+opencv-python-headless
+waitress
+requests
