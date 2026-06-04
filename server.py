@@ -20,14 +20,14 @@ def get_db_connection():
         try:
             # 1. BYPASS DNS: Paksa Python nyari IP aslinya kalau belum hafal
             if not CACHED_DB_IP:
-                CACHED_DB_IP = socket.gethostbyname("brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com")
+                CACHED_DB_IP = socket.gethostbyname("mysql-svc")
             
             # 2. Konek LANGSUNG KE IP-NYA (Bukan ke nama domain)
             return mysql.connector.connect(
                 host=CACHED_DB_IP, 
-                user="ujiqps88uip6czmm",
-                password="QViN9QYtHk0D1E2eIQUP",
-                database="brtes9fxxbfuwuurhjfx",
+                user="smartdoor_user",
+                password="SmartDoor2026!",
+                database="smartdoor_db",
                 port=3306,
                 ssl_disabled=True,
                 connect_timeout=10

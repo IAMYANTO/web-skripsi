@@ -41,16 +41,16 @@ def get_db_pool():
     global CACHED_DB_IP
     try:
         if not CACHED_DB_IP:
-            CACHED_DB_IP = socket.gethostbyname("brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com")
+            CACHED_DB_IP = socket.gethostbyname("mysql-svc")
             
         return pooling.MySQLConnectionPool(
             pool_name="smartdoor_pool",
-            pool_size=5,  # Siapkan 5 koneksi standby
-            pool_reset_session=True, # Otomatis reset session per query
+            pool_size=5,  # Kita naikkan lagi ke 5 karena DB lokal sangat kencang
+            pool_reset_session=True, 
             host=CACHED_DB_IP,
-            user="ujiqps88uip6czmm",
-            password="QViN9QYtHk0D1E2eIQUP",
-            database="brtes9fxxbfuwuurhjfx",
+            user="smartdoor_user",
+            password="SmartDoor2026!",
+            database="smartdoor_db",
             port=3306,
             ssl_disabled=True,
             connect_timeout=15
