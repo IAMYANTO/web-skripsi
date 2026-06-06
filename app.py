@@ -28,7 +28,8 @@ LAST_SEEN_HARDWARE = {}
 EMAIL_SENDER = "smartdoor.unair@gmail.com" 
 EMAIL_PASSWORD = "plfcwufhkgijwzjr"
 
-from mysql.connector import pooling
+from functools import wraps
+import mysql.connector
 import socket
 import logging
 
@@ -37,45 +38,25 @@ logging.basicConfig(level=logging.INFO)
 # Caching IP DNS
 CACHED_DB_IP = None
 
-def get_db_pool():
+def get_db_connection():
     global CACHED_DB_IP
     try:
         if not CACHED_DB_IP:
             CACHED_DB_IP = socket.gethostbyname("mysql-svc")
             
-        return pooling.MySQLConnectionPool(
-            pool_name="smartdoor_pool",
-            pool_size=5,  # Kita naikkan lagi ke 5 karena DB lokal sangat kencang
-            pool_reset_session=True, 
+        return mysql.connector.connect(
             host=CACHED_DB_IP,
             user="smartdoor_user",
             password="SmartDoor2026!",
             database="smartdoor_db",
             port=3306,
             ssl_disabled=True,
-            connect_timeout=15
+            connect_timeout=10
         )
-    except Exception as err:
-        logging.error(f"Gagal inisialisasi connection pool: {err}")
+    except Exception as e:
+        logging.error(f"Koneksi DB gagal: {e}")
+        CACHED_DB_IP = None
         return None
-
-# Inisialisasi pool secara global
-db_pool = get_db_pool()
-
-def get_db_connection():
-    global db_pool
-    for i in range(3):
-        try:
-            if not db_pool:
-                db_pool = get_db_pool()
-            conn = db_pool.get_connection()
-            # 🚨 ILMU HITAM: Cek & sambung ulang otomatis kalau diputus Clever Cloud!
-            conn.ping(reconnect=True, attempts=3, delay=2) 
-            return conn
-        except Exception as err:
-            logging.warning(f"Koneksi DB bermasalah... Coba lagi.")
-            time.sleep(2)
-    return None
 
 def login_required(f):
     from functools import wraps
