@@ -7,7 +7,7 @@ import json
 import time
 import socket
 CACHED_DB_IP = None
-from waitress import serve # 🚨 PENTING: Jangan lupa pip install waitress
+from waitress import serve 
 
 app = Flask(__name__)
 
@@ -18,11 +18,11 @@ def get_db_connection():
     # 5 kali percobaan
     for i in range(5):
         try:
-            # 1. BYPASS DNS: Paksa Python nyari IP aslinya kalau belum hafal
+            # 1. BYPASS DNS
             if not CACHED_DB_IP:
                 CACHED_DB_IP = socket.gethostbyname("mysql-svc")
             
-            # 2. Konek LANGSUNG KE IP-NYA (Bukan ke nama domain)
+            # 2. Konek LANGSUNG KE IP
             return mysql.connector.connect(
                 host=CACHED_DB_IP, 
                 user="smartdoor_user",
@@ -33,9 +33,9 @@ def get_db_connection():
                 connect_timeout=10
             )
         except Exception as err:
-            CACHED_DB_IP = None # Reset hafalan IP kalau ternyata Clever Cloud ganti IP
+            CACHED_DB_IP = None 
             if i < 4:
-                time.sleep(2) # Kasih nafas 2 detik
+                time.sleep(2) 
                 continue
             else:
                 raise err
@@ -131,9 +131,9 @@ def check_face():
 
     if distances[best_match_index] < 0.5:
         name = known_names[best_match_index]
-        pintu_izin_user = known_doors[best_match_index] # 🚨 2. Cek ingatan RAM
+        pintu_izin_user = known_doors[best_match_index] 
         
-        # 🚨 3. LOGIKA PEMBATAS PINTU
+        # 2. LOGIKA PEMBATAS PINTU
         # Kalau aksesnya bukan untuk pintu ini, dan bukan 'all' (Admin), maka TOLAK!
         if pintu_izin_user != door_id_kamera and pintu_izin_user != 'all':
             print(f"⛔ [PENYUSUP WAJAH] {name} mencoba masuk ke {door_id_kamera} (Izin: {pintu_izin_user})")
@@ -182,7 +182,7 @@ def check_rfid():
         conn.close()
 
         if user:
-            # 🚨 LOGIKA PEMBATAS PINTU RFID (Kodingan Aslimu Udah Bener!)
+            # LOGIKA PEMBATAS PINTU RFID
             if user['allowed_door'] == door_request or user['allowed_door'] == 'all':
                 print(f"✅ [Akses Ditemukan] Atas nama: {user['nama']} di {door_request}")
                 return jsonify({
@@ -216,7 +216,7 @@ def activate_admin():
         cursor.execute("SELECT id, username FROM admins WHERE status = 'PENDING' ORDER BY id ASC LIMIT 1")
         pending_admin = cursor.fetchone()
         
-        # 2. Cari antrean di tabel Users (Pegawai biasa yang UID-nya masih kosong)
+        # 2. Cari antrean di tabel Users
         cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id ASC LIMIT 1")
         pending_user = cursor.fetchone()
         
@@ -225,7 +225,7 @@ def activate_admin():
             conn.close()
             return jsonify({"status": "FAILED", "message": "Tidak ada antrean kartu yang kosong!"})
             
-        # 3. Eksekusi pengisian UID kartu ke tabel yang membutuhkan
+        # 3. pengisian UID kartu ke tabel 
         if pending_admin:
             cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'ACTIVE' WHERE id = %s", (new_uid, pending_admin['id']))
             print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Admin Web: {pending_admin['username']}")
