@@ -129,7 +129,7 @@ def check_face():
     distances = face_recognition.face_distance(known_encodings, encoding)
     best_match_index = np.argmin(distances)
 
-    if distances[best_match_index] < 0.5:
+    if distances[best_match_index] < 0.4:
         name = known_names[best_match_index]
         pintu_izin_user = known_doors[best_match_index] 
         
