@@ -11,6 +11,8 @@ services:
     ports:
       - "5000:5000"
     restart: always
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
 
@@ -23,6 +25,8 @@ services:
     ports:
       - "5001:5000" # Map to 5001 since 5000 is used by app-web
     restart: always
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
 
