@@ -21,12 +21,12 @@ import os
 CACHED_DB_IP = None
 
 app = Flask(__name__)
-app.secret_key = 'skripsi_unair_hebat' 
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fallback_secret") 
 app.permanent_session_lifetime = timedelta(minutes=15)
 
 LAST_SEEN_HARDWARE = {}
-EMAIL_SENDER = "smartdoor.unair@gmail.com" 
-EMAIL_PASSWORD = "plfcwufhkgijwzjr"
+EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")
 
 from functools import wraps
 import mysql.connector
@@ -345,7 +345,8 @@ import threading
 def run_update_script():
     try:
         # Menggunakan sshpass untuk mengeksekusi script update di server host dari dalam container
-        ssh_cmd = "sshpass -p 'Kmzway87aa18032001' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
+        ssh_pass = os.environ.get("SSH_PASSWORD", "")
+        ssh_cmd = f"sshpass -p '{ssh_pass}' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
         subprocess.run(ssh_cmd, shell=True)
     except Exception as e:
         print(f"Error update: {e}")
