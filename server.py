@@ -24,10 +24,10 @@ def get_db_connection():
             
             # 2. Konek LANGSUNG KE IP
             return mysql.connector.connect(
-                host=CACHED_DB_IP, 
-                user="smartdoor_user",
-                password="SmartDoor2026!",
-                database="smartdoor_db",
+                 host=CACHED_DB_IP,
+                user=os.environ.get("DB_USER", "root"),
+                password=os.environ.get("DB_PASSWORD", ""),
+                database=os.environ.get("DB_NAME", "smartdoor_db"),
                 port=3306,
                 ssl_disabled=True,
                 connect_timeout=10
