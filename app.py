@@ -21,12 +21,12 @@ import os
 CACHED_DB_IP = None
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fallback_secret") 
+app.secret_key = 'skripsi_unair_hebat'
 app.permanent_session_lifetime = timedelta(minutes=15)
 
 LAST_SEEN_HARDWARE = {}
-EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")
+EMAIL_SENDER = "smartdoor.unair@gmail.com"
+EMAIL_PASSWORD = "plfcwufhkgijwzjr"
 
 from functools import wraps
 import mysql.connector
@@ -44,11 +44,11 @@ def get_db_connection():
         if not CACHED_DB_IP:
             CACHED_DB_IP = socket.gethostbyname("mysql-svc")
             
-            return mysql.connector.connect(
+        return mysql.connector.connect(
             host=CACHED_DB_IP,
-            user=os.environ.get("DB_USER", "root"),
-            password=os.environ.get("DB_PASSWORD", ""),
-            database=os.environ.get("DB_NAME", "smartdoor_db"),
+            user="smartdoor_user",
+            password="SmartDoor2026!",
+            database="smartdoor_db",
             port=3306,
             ssl_disabled=True,
             connect_timeout=10
@@ -518,6 +518,13 @@ def view_logs():
     cursor.close()
     conn.close()
     return render_template("logs.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
+
+def run_update_script():
+    try:
+        ssh_cmd = "sshpass -p 'Kmzway87aa18032001' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
+        subprocess.run(ssh_cmd, shell=True)
+    except Exception as e:
+        print(f"Error update: {e}")
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5000)
