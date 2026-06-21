@@ -230,7 +230,7 @@ def activate_admin():
             cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'ACTIVE' WHERE id = %s", (new_uid, pending_admin['id']))
             print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Admin Web: {pending_admin['username']}")
             
-        if pending_user:
+        elif pending_user: 
             cursor.execute("UPDATE users SET rfid_uid = %s WHERE id = %s", (new_uid, pending_user['id']))
             print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Pegawai: {pending_user['nama']}")
             
