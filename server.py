@@ -135,7 +135,7 @@ def check_face():
         
         # 2. LOGIKA PEMBATAS PINTU
         # Kalau aksesnya bukan untuk pintu ini, dan bukan 'all' (Admin), maka TOLAK!
-        if pintu_izin_user != door_id_kamera and pintu_izin_user != 'all':
+        if pintu_izin_user.lower() != door_id_kamera.lower() and pintu_izin_user.lower() != 'all':
             print(f"⛔ [PENYUSUP WAJAH] {name} mencoba masuk ke {door_id_kamera} (Izin: {pintu_izin_user})")
             return jsonify({
                 "result": "UNKNOWN",
@@ -183,7 +183,7 @@ def check_rfid():
 
         if user:
             # LOGIKA PEMBATAS PINTU RFID
-            if user['allowed_door'] == door_request or user['allowed_door'] == 'all':
+            if user['allowed_door'].lower() == door_request.lower() or user['allowed_door'].lower() == 'all':
                 print(f"✅ [Akses Ditemukan] Atas nama: {user['nama']} di {door_request}")
                 return jsonify({
                     "status": "VALID",
