@@ -426,7 +426,7 @@ def api_register_face_web():
         conn.close()
         
         try:
-            response = requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
+            response = requests.get("https://access-control-iot.vps.prakhya.id/reload_faces", timeout=10)
             if response.status_code == 200:
                 return jsonify({"status": "success", "message": f"Sempurna! Wajah {name} berhasil didaftarkan & AI otomatis update!"})
             else:
