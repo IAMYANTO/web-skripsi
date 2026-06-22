@@ -426,13 +426,11 @@ def api_register_face_web():
         conn.close()
         
         try:
-            requests.get("http://access-control-svc:5000/reload_faces", timeout=5)
-            if response.status_code == 200:
-                return jsonify({"status": "success", "message": f"Sempurna! Wajah {name} berhasil didaftarkan & AI otomatis update!"})
-            else:
-                return jsonify({"status": "warning", "message": f"Wajah tersimpan, tapi AI gagal update (Error {response.status_code})"})
-        except Exception as e:
-            return jsonify({"status": "warning", "message": f"Wajah tersimpan, tapi gagal menghubungi AI (Error: {str(e)})"})
+            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
+        except:
+            pass
+            
+        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     
