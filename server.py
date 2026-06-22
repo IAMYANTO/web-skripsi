@@ -102,7 +102,7 @@ def reload_faces():
 def check_face():
     # 🚨 1. Tangkap "KTP" Pintu dari ESP32-S3 CAM 
     # (Pastikan ESP32 kirim ?door_id=door1 atau ?door_id=door2)
-    door_id_kamera = request.args.get('door_id', 'door1')
+    door_id_kamera = request.args.get('door_id', 'door1', 'door2')
 
     img_bytes = request.data
     if not img_bytes or len(img_bytes) < 100:
