@@ -426,7 +426,7 @@ def api_register_face_web():
         conn.close()
         
         try:
-            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
+            requests.get("http://access-control:5000/reload_faces", timeout=5)
         except:
             pass
             
