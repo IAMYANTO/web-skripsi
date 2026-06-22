@@ -426,13 +426,31 @@ def api_register_face_web():
         conn.close()
         
         try:
-            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
-        except:
-            pass
+            # Ganti URL ini sesuai dengan nama service AI di Docker-mu dan Port 5000
+            response = requests.get("http://access-control:5000/reload_faces", timeout=5)
             
-        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan!"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+            if response.status_code == 200:
+                # Skenario 1: Fitur Otomatis BERHASIL! AI langsung pintar detik itu juga.
+                return jsonify({
+                    "status": "success", 
+                    "message": f"Sempurna! Wajah {name} berhasil didaftarkan dan AI otomatis di-update!"
+                })
+            else:
+                # Skenario 2: Fitur otomatis nabrak tembok (URL/Port salah)
+                return jsonify({
+                    "status": "success", 
+                    "message": f"Wajah {name} tersimpan, TAPI update otomatis gagal (Error {response.status_code})."
+                })
+                
+        except Exception as e:
+            # Skenario 3: Web gagal menemukan jaringan AI
+            return jsonify({
+                "status": "success", 
+                "message": f"Wajah tersimpan, TAPI fitur update otomatis terputus. Detail: {e}"
+                })
+            
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route("/forgot_password", methods=["POST"])
 @login_required
