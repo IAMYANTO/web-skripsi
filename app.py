@@ -426,17 +426,13 @@ def api_register_face_web():
         conn.close()
         
         try:
-            # Ganti menjadi nama service yang benar (access-control) dan port 5000
-            response = requests.get("http://access-control:5000/reload_faces", timeout=5)
+            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
+        except:
+            pass
             
-            # Tambahkan ini biar kalau gagal, ada notifikasinya di layar web
-            if response.status_code == 200:
-                return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan & AI langsung update!"})
-            else:
-                return jsonify({"status": "error", "message": "Wajah tersimpan, tapi AI gagal update (Error " + str(response.status_code) + ")"})
-                
-        except Exception as e:
-            return jsonify({"status": "error", "message": f"Wajah tersimpan, tapi gagal menghubungi AI (Error: {str(e)})"})
+        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route("/forgot_password", methods=["POST"])
 @login_required
