@@ -10,26 +10,56 @@ import smtplib
 import datetime
 from email.mime.text import MIMEText
 from datetime import timedelta
+import face_recognition
+import cv2
+import numpy as np
+import base64
+import requests
+import time
+import socket
+import os
+CACHED_DB_IP = None
 
 app = Flask(__name__)
-app.secret_key = 'skripsi_unair_hebat' 
-app.permanent_session_lifetime = timedelta(minutes=15) 
+app.secret_key = 'skripsi_unair_hebat'
+app.permanent_session_lifetime = timedelta(minutes=15)
 
 LAST_SEEN_HARDWARE = {}
-EMAIL_SENDER = "smartdoor.unair@gmail.com" 
-EMAIL_PASSWORD = "plfcwufhkgijwzjr"        
+EMAIL_SENDER = "smartdoor.unair@gmail.com"
+EMAIL_PASSWORD = "plfcwufhkgijwzjr"
+
+from functools import wraps
+import mysql.connector
+import socket
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+# Caching IP DNS
+CACHED_DB_IP = None
 
 def get_db_connection():
-    return mysql.connector.connect(
-        host="brtes9fxxbfuwuurhjfx-mysql.services.clever-cloud.com",
-        user="ujiqps88uip6czmm",
-        password="QViN9QYtHk0D1E2eIQUP",
-        database="brtes9fxxbfuwuurhjfx",
-        port=3306,
-        ssl_disabled=True
-    )
+    global CACHED_DB_IP
+    try:
+        if not CACHED_DB_IP:
+            CACHED_DB_IP = socket.gethostbyname("mysql-svc")
+            
+        return mysql.connector.connect(
+            host=CACHED_DB_IP,
+            user="smartdoor_user",
+            password="SmartDoor2026!",
+            database="smartdoor_db",
+            port=3306,
+            ssl_disabled=True,
+            connect_timeout=10
+        )
+    except Exception as e:
+        logging.error(f"Koneksi DB gagal: {e}")
+        CACHED_DB_IP = None
+        return None
 
 def login_required(f):
+    from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'logged_in' not in session:
@@ -186,8 +216,11 @@ def trigger_bypass():
 @app.route("/check_bypass_status", methods=["GET"])
 def check_bypass_status():
     door_id = request.args.get("door_id", "door1").lower()
-    global LAST_SEEN_HARDWARE
-    LAST_SEEN_HARDWARE[door_id] = datetime.datetime.now()
+    
+    # Ping Online/Offline sistem
+    with open(f"ping_hardware_{door_id}.txt", "w") as f:
+        f.write(str(time.time()))
+        
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -202,9 +235,10 @@ def check_bypass_status():
         cursor.close()
         conn.close()
         return jsonify({"status": "CLOSED"}), 200
-    except Exception as e: return jsonify({"error": str(e)}), 500
+    except Exception as e: 
+        return jsonify({"error": str(e)}), 500
 
-# === API SAKTI AKTIVASI AMAN KEBANTAI SPASI GAIB ===
+# === API  AKTIVASI  ===
 @app.route("/activate_admin", methods=["POST"])
 def activate_admin():
     data = request.json
@@ -214,11 +248,11 @@ def activate_admin():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        cursor.execute("SELECT username FROM admins WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT username FROM admins WHERE status = 'PENDING' ORDER BY id ASC LIMIT 1")
         pending_admin = cursor.fetchone()
         
         # MENGGUNAKAN TRIM UNTUK MENANGKAP STRIP GAIB DAN SPASI KOSONG
-        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT id, nama FROM users WHERE rfid_uid IS NULL OR TRIM(rfid_uid) = '' OR TRIM(rfid_uid) = '-' ORDER BY id ASC LIMIT 1")
         pending_user = cursor.fetchone()
         
         if not pending_admin and not pending_user:
@@ -241,11 +275,17 @@ def activate_admin():
 @app.route("/api/hardware_status", methods=["GET"])
 def api_hardware_status():
     door_id = request.args.get("door_id", "door1").lower()
-    global LAST_SEEN_HARDWARE
-    last_seen = LAST_SEEN_HARDWARE.get(door_id)
-    if last_seen:
-        if (datetime.datetime.now() - last_seen).total_seconds() < 35:
+    try:
+        #  Baca Detak Jantung dari File Teks Fisik!
+        with open(f"ping_hardware_{door_id}.txt", "r") as f:
+            last_seen = float(f.read().strip())
+        
+        # Kalau ping terakhir kurang dari 35 detik yang lalu = ONLINE hijau!
+        if (time.time() - last_seen) < 35:
             return jsonify({"status": "ONLINE"}), 200
+    except Exception:
+        pass 
+        
     return jsonify({"status": "OFFLINE"}), 200
 
 @app.route("/log_access", methods=["POST"])
@@ -299,6 +339,37 @@ def export_csv():
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=Laporan_Akses_SmartDoor.csv"})
 
+import subprocess
+import threading
+
+def run_update_script():
+    try:
+        # Menggunakan sshpass untuk mengeksekusi script update di server host dari dalam container
+        ssh_pass = os.environ.get("SSH_PASSWORD", "")
+        ssh_cmd = f"sshpass -p '{ssh_pass}' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
+        subprocess.run(ssh_cmd, shell=True)
+    except Exception as e:
+        print(f"Error update: {e}")
+
+@app.route("/api/update_app", methods=["GET"])
+@login_required
+def api_update_app():
+    role = session.get('role')
+    if role != 'admin': return jsonify({"error": "Akses Ditolak"}), 403
+    
+    # Trigger background job agar tidak memblokir response
+    thread = threading.Thread(target=run_update_script)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({"message": "Service mu aku update ya. tunggu kurang lebih 5 menit."}), 200
+
+@app.route("/system_update")
+@login_required
+def system_update_page():
+    if session.get('role') != 'admin': return "Akses Ditolak!", 403
+    return render_template("update.html", username=session.get('admin_user'), role=session.get('role'))
+
 @app.route("/profile")
 @login_required
 def profile():
@@ -311,6 +382,57 @@ def profile():
     conn.close()
     email = user_data['email'] if user_data else ""
     return render_template("profile.html", username=username, role=session.get('role'), email=email)
+
+@app.route("/register_face_page")
+@login_required
+def register_face_page():
+    return render_template("register_face.html")
+
+@app.route("/api/register_face_web", methods=["POST"])
+@login_required
+def api_register_face_web():
+    data = request.json
+    name = data.get("name")
+    door = data.get("door")
+    image_data = data.get("image")
+    
+    if not all([name, door, image_data]):
+        return jsonify({"status": "error", "message": "Data tidak lengkap!"}), 400
+        
+    try:
+        header, encoded = image_data.split(",", 1)
+        image_bytes = base64.b64decode(encoded)
+        
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        face_locations = face_recognition.face_locations(rgb_img)
+        
+        if len(face_locations) == 0:
+            return jsonify({"status": "error", "message": "Wajah tidak terdeteksi!"}), 400
+        elif len(face_locations) > 1:
+            return jsonify({"status": "error", "message": "Terdeteksi lebih dari 1 wajah!"}), 400
+            
+        face_encoding = face_recognition.face_encodings(rgb_img, face_locations)[0]
+        encoding_str = json.dumps(face_encoding.tolist())
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (nama, face_encoding, allowed_door) VALUES (%s, %s, %s)", 
+                       (name, encoding_str, door))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        try:
+            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
+        except:
+            pass
+            
+        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route("/forgot_password", methods=["POST"])
 @login_required
@@ -397,5 +519,12 @@ def view_logs():
     conn.close()
     return render_template("logs.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
 
+def run_update_script():
+    try:
+        ssh_cmd = "sshpass -p 'Kmzway87aa18032001' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
+        subprocess.run(ssh_cmd, shell=True)
+    except Exception as e:
+        print(f"Error update: {e}")
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
