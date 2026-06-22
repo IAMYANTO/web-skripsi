@@ -425,16 +425,38 @@ def api_register_face_web():
         cursor.close()
         conn.close()
         
+# --- TAKTIK SNIPER: KETUK SEMUA PINTU ---
         try:
-            response = requests.get("https://access-control-iot.vps.prakhya.id/reload_faces", timeout=10)
-            if response.status_code == 200:
+            target_urls = [
+                "http://access-control-svc/reload_faces",        # Target 1: Pintu K3s Default (Port 80)
+                "http://access-control-svc:5000/reload_faces",   # Target 2: Pintu Asli Flask
+                "http://access-control-svc:5001/reload_faces",   # Target 3: Pintu Docker Compose
+                "http://smartdoor-access:5000/reload_faces"      # Target 4: Tembak Langsung ke Container
+            ]
+            
+            ai_updated = False
+            pesan_error = ""
+            
+            for url in target_urls:
+                try:
+                    # Tembak tiap alamat dengan batas waktu 2 detik
+                    response = requests.get(url, timeout=2)
+                    if response.status_code == 200:
+                        ai_updated = True
+                        break # BINGO! Berhasil, langsung hentikan pencarian!
+                    else:
+                        pesan_error += f"[{url} -> 404] "
+                except:
+                    pesan_error += f"[{url} -> Timeout] "
+            
+            if ai_updated:
                 return jsonify({"status": "success", "message": f"Sempurna! Wajah {name} berhasil didaftarkan & AI otomatis update!"})
             else:
-                return jsonify({"status": "warning", "message": f"Wajah tersimpan, tapi AI gagal update (Error {response.status_code})"})
+                # Kalau gagal semua, dia akan ngasih tahu kita pintu mana saja yang buntu
+                return jsonify({"status": "warning", "message": f"Wajah tersimpan, tapi AI gagal update. Log Sniper: {pesan_error}"})
+                
         except Exception as e:
-            return jsonify({"status": "warning", "message": f"Wajah tersimpan, tapi gagal menghubungi AI (Error: {str(e)})"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "warning", "message": f"Wajah tersimpan, tapi sistem error: {str(e)}"})
     
 @app.route("/forgot_password", methods=["POST"])
 @login_required
