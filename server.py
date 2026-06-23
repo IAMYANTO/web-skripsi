@@ -100,7 +100,12 @@ def reload_faces():
 # ==========================================
 @app.route("/check_face", methods=["POST"])
 def check_face():
-    # 🚨 1. Tangkap "KTP" Pintu dari ESP32-S3 CAM 
+    try:
+        load_encodings_from_db()
+        print("[INFO] Otak AI berhasil di-refresh otomatis dari MySQL!")
+    except Exception as e:
+        print(f"[WARNING] Gagal melakukan auto-refresh database: {e}")
+    #  1. Tangkap muka Pintu dari ESP32-S3 CAM 
     # (Pastikan ESP32 kirim ?door_id=door1 atau ?door_id=door2)
     door_id_kamera = request.args.get('door_id', 'door1')
 
