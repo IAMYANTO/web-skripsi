@@ -16,6 +16,8 @@ app = Flask(__name__)
 # NILAI HARUS SAMA PERSIS dengan RELOAD_TOKEN di app.py.
 RELOAD_TOKEN = "5faed7aa9ea20314944864b20c180ca4b29e8df349c9f8b9"
 
+tracker_wajah = {"nama_terakhir": "Unknown", "beruntun": 0}
+
 # --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE CLEVER CLOUD ---
 def get_db_connection():
     global CACHED_DB_IP
@@ -142,12 +144,28 @@ def check_face():
     if len(known_encodings) == 0:
          return jsonify({"result": "DB_EMPTY", "name": "Unknown"})
 
+    global tracker_wajah
+
     distances = face_recognition.face_distance(known_encodings, encoding)
     best_match_index = np.argmin(distances)
 
     if distances[best_match_index] < 0.4:
         name = known_names[best_match_index]
-        pintu_izin_user = known_doors[best_match_index] 
+        pintu_izin_user = known_doors[best_match_index]
+
+        if tracker_wajah["nama_terakhir"] == name:
+            tracker_wajah["beruntun"] += 1
+        else:
+            tracker_wajah["nama_terakhir"] = name
+            tracker_wajah["beruntun"] = 1
+
+        if tracker_wajah["beruntun"] < 2:
+            return jsonify({
+                "result": "UNKNOWN",
+                "name": "Unknown"
+            })
+
+        tracker_wajah["beruntun"] = 0
         
         # 2. LOGIKA PEMBATAS PINTU
         # Kalau aksesnya bukan untuk pintu ini, dan bukan 'all' (Admin), maka TOLAK!
@@ -159,12 +177,14 @@ def check_face():
             })
             
         # Kalau lolos validasi pintu
-        print(f"✅ [FACE MATCH] {name} diizinkan masuk ke {door_id_kamera}")
+        print(f" [FACE MATCH] {name} diizinkan masuk ke {door_id_kamera}")
         return jsonify({
             "result": "FACE_OK",
             "name": name
         })
     else:
+        tracker_wajah["nama_terakhir"] = "Unknown"
+        tracker_wajah["beruntun"] = 0
         print("👤 [UNKNOWN FACE]")
         return jsonify({
             "result": "UNKNOWN",
