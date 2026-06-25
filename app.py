@@ -434,7 +434,7 @@ def api_register_face_web():
         try:
             r = requests.post(
                 "http://access-control-svc/reload_faces",
-                headers={"X-Reload-Token": os.environ.get("RELOAD_TOKEN", "")},
+                headers={"X-Reload-Token": "5faed7aa9ea20314944864b20c180ca4b29e8df349c9f8b9"},
                 timeout=8
             )
             if r.status_code != 200:

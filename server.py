@@ -6,7 +6,6 @@ import mysql.connector
 import json 
 import time
 import socket
-import os
 CACHED_DB_IP = None
 from waitress import serve 
 
@@ -14,8 +13,8 @@ app = Flask(__name__)
 
 # Token rahasia untuk mengamankan endpoint /reload_faces.
 # Hanya pemanggil yang tahu token ini (yaitu web-backend) yang boleh memicu reload.
-# Diset lewat env var RELOAD_TOKEN agar sama persis dengan yang dipakai app.py.
-RELOAD_TOKEN = os.environ.get("RELOAD_TOKEN", "")
+# NILAI HARUS SAMA PERSIS dengan RELOAD_TOKEN di app.py.
+RELOAD_TOKEN = "5faed7aa9ea20314944864b20c180ca4b29e8df349c9f8b9"
 
 # --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE CLEVER CLOUD ---
 def get_db_connection():
