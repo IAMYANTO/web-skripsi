@@ -425,12 +425,28 @@ def api_register_face_web():
         cursor.close()
         conn.close()
         
+        # Picu service AI (access-control) untuk reload wajah dari DB.
+        # access-control-svc di K3s expose port 80 -> targetPort 5000 (server.py).
+        # Token dikirim lewat header X-Reload-Token; harus sama dengan RELOAD_TOKEN
+        # di pod access-control. JANGAN ditelan diam-diam: kalau reload gagal,
+        # admin wajib tahu supaya wajah baru tidak "hilang" tanpa jejak.
+        reload_warning = None
         try:
-            requests.get("http://access-control-svc:5001/reload_faces", timeout=5)
-        except:
-            pass
-            
-        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan!"})
+            r = requests.post(
+                "http://access-control-svc/reload_faces",
+                headers={"X-Reload-Token": os.environ.get("RELOAD_TOKEN", "")},
+                timeout=8
+            )
+            if r.status_code != 200:
+                reload_warning = f"Service AI menolak reload (HTTP {r.status_code}). Wajah tersimpan tapi belum aktif."
+        except Exception as e:
+            reload_warning = f"Gagal menghubungi service AI untuk reload: {e}. Wajah tersimpan tapi belum aktif."
+
+        if reload_warning:
+            print(f"[WARNING] {reload_warning}")
+            return jsonify({"status": "warning", "message": f"Wajah {name} tersimpan, TAPI: {reload_warning}"})
+
+        return jsonify({"status": "success", "message": f"Wajah {name} berhasil didaftarkan & langsung aktif!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     
@@ -518,13 +534,6 @@ def view_logs():
     cursor.close()
     conn.close()
     return render_template("logs.html", username=session.get('admin_user'), role=session.get('role'), logs=logs_data)
-
-def run_update_script():
-    try:
-        ssh_cmd = "sshpass -p 'Kmzway87aa18032001' ssh -o StrictHostKeyChecking=no -p 2222 gemini@31.97.49.12 'bash /home/gemini/web-skripsi/update_server.sh'"
-        subprocess.run(ssh_cmd, shell=True)
-    except Exception as e:
-        print(f"Error update: {e}")
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5000)

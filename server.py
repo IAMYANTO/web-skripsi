@@ -6,10 +6,16 @@ import mysql.connector
 import json 
 import time
 import socket
+import os
 CACHED_DB_IP = None
 from waitress import serve 
 
 app = Flask(__name__)
+
+# Token rahasia untuk mengamankan endpoint /reload_faces.
+# Hanya pemanggil yang tahu token ini (yaitu web-backend) yang boleh memicu reload.
+# Diset lewat env var RELOAD_TOKEN agar sama persis dengan yang dipakai app.py.
+RELOAD_TOKEN = os.environ.get("RELOAD_TOKEN", "")
 
 # --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE CLEVER CLOUD ---
 def get_db_connection():
@@ -87,8 +93,17 @@ load_encodings_from_db()
 def home():
     return "Face Recognition Server Lokal Aktif (Mode Produksi: Multi-Door)"
 
-@app.route("/reload_faces", methods=["GET"])
+@app.route("/reload_faces", methods=["GET", "POST"])
 def reload_faces():
+    # KEAMANAN: tolak pemanggil yang tidak membawa token yang benar.
+    # Token dikirim lewat header 'X-Reload-Token'. Kalau RELOAD_TOKEN di server
+    # kosong (belum diset), pengamanan dilewati agar tidak mengunci diri sendiri.
+    if RELOAD_TOKEN:
+        token = request.headers.get("X-Reload-Token", "")
+        if token != RELOAD_TOKEN:
+            print("⛔ [RELOAD DITOLAK] Token tidak valid.")
+            return jsonify({"status": "FORBIDDEN", "message": "Token tidak valid"}), 403
+
     load_encodings_from_db()
     return jsonify({
         "status": "SUCCESS", 
@@ -100,11 +115,8 @@ def reload_faces():
 # ==========================================
 @app.route("/check_face", methods=["POST"])
 def check_face():
-    try:
-        load_encodings_from_db()
-        print("[INFO] Otak AI berhasil di-refresh otomatis dari MySQL!")
-    except Exception as e:
-        print(f"[WARNING] Gagal melakukan auto-refresh database: {e}")
+    # Catatan: data wajah di-refresh lewat endpoint /reload_faces (dipicu web-backend
+    # setiap ada pendaftaran wajah baru), JADI TIDAK perlu reload dari DB tiap frame.
     #  1. Tangkap muka Pintu dari ESP32-S3 CAM 
     # (Pastikan ESP32 kirim ?door_id=door1 atau ?door_id=door2)
     door_id_kamera = request.args.get('door_id', 'door1')
