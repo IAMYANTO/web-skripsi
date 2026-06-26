@@ -161,7 +161,7 @@ def check_face():
 
         if tracker_wajah["beruntun"] < 2:
             return jsonify({
-                "result": "UNKNOWN",
+                "result": "HOLD",
                 "name": "Unknown"
             })
 
