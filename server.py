@@ -171,12 +171,15 @@ def check_face():
         # Kalau aksesnya bukan untuk pintu ini, dan bukan 'all' (Admin), maka TOLAK!
         if pintu_izin_user.lower() != door_id_kamera.lower() and pintu_izin_user.lower() != 'all':
             print(f"⛔ [PENYUSUP WAJAH] {name} mencoba masuk ke {door_id_kamera} (Izin: {pintu_izin_user})")
+            tracker_wajah["nama_terakhir"] = "Unknown"
+            tracker_wajah["beruntun"] = 0
             return jsonify({
                 "result": "UNKNOWN",
                 "name": "Unknown"
             })
             
         # Kalau lolos validasi pintu
+        tracker_wajah["beruntun"] = 0
         print(f" [FACE MATCH] {name} diizinkan masuk ke {door_id_kamera}")
         return jsonify({
             "result": "FACE_OK",
