@@ -121,8 +121,6 @@ def check_face():
     #  1. Tangkap muka Pintu dari ESP32-S3 CAM 
     # (Pastikan ESP32 kirim ?door_id=door1 atau ?door_id=door2)
     door_id_kamera = request.args.get('door_id', 'door1')
-    import time
-    mulai_mikir = time.time()
 
     img_bytes = request.data
     if not img_bytes or len(img_bytes) < 100:
@@ -177,15 +175,12 @@ def check_face():
                 "result": "UNKNOWN",
                 "name": "Unknown"
             })
-
-        durasi_mikir = (time.time() - mulai_mikir) * 1000
             
         # Kalau lolos validasi pintu
         print(f" [FACE MATCH] {name} diizinkan masuk ke {door_id_kamera}")
         return jsonify({
             "result": "FACE_OK",
             "name": name
-            "inference_time": f"{durasi_mikir:.2f} ms"
         })
     else:
         tracker_wajah["nama_terakhir"] = "Unknown"
@@ -194,7 +189,6 @@ def check_face():
         return jsonify({
             "result": "UNKNOWN",
             "name": "Unknown"
-            "inference_time": f"{durasi_mikir:.2f} ms"
         })
 
 # ==========================================
