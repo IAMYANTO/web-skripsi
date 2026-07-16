@@ -169,6 +169,9 @@ def check_face():
         
         # 2. LOGIKA PEMBATAS PINTU
         # Kalau aksesnya bukan untuk pintu ini, dan bukan 'all' (Admin), maka TOLAK!
+        if not pintu_izin_user:
+            pintu_izin_user = ""
+        
         if pintu_izin_user.lower() != door_id_kamera.lower() and pintu_izin_user.lower() != 'all':
             print(f"⛔ [PENYUSUP WAJAH] {name} mencoba masuk ke {door_id_kamera} (Izin: {pintu_izin_user})")
             tracker_wajah["nama_terakhir"] = "Unknown"
@@ -221,6 +224,9 @@ def check_rfid():
         conn.close()
 
         if user:
+            if not user.get('allowed_door'):
+                user['allowed_door'] = ""
+            
             # LOGIKA PEMBATAS PINTU RFID
             if user['allowed_door'].lower() == door_request.lower() or user['allowed_door'].lower() == 'all':
                 print(f"✅ [Akses Ditemukan] Atas nama: {user['nama']} di {door_request}")
@@ -266,10 +272,10 @@ def activate_admin():
             
         # 3. pengisian UID kartu ke tabel 
         if pending_admin:
-            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'ACTIVE' WHERE id = %s", (new_uid, pending_admin['id']))
+            cursor.execute("UPDATE admins SET rfid_uid = %s, status = 'AKTIF' WHERE id = %s", (new_uid, pending_admin['id']))
             print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Admin Web: {pending_admin['username']}")
             
-        elif pending_user: 
+        if pending_user: 
             cursor.execute("UPDATE users SET rfid_uid = %s WHERE id = %s", (new_uid, pending_user['id']))
             print(f"✅ [AKTIVASI SUKSES] Kartu {new_uid} didaftarkan untuk Pegawai: {pending_user['nama']}")
             
