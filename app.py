@@ -505,12 +505,23 @@ def manage_users():
 def delete_user(user_id):
     if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({"message": "Sukses"}), 200
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT rfid_uid FROM users WHERE id = %s", (user_id,))
+        user_data = cursor.fetchone()
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        if user_data and user_data.get('rfid_uid'):
+            uid = user_data['rfid_uid']
+            if uid.strip() != "" and uid.strip() != "-":
+                cursor.execute("DELETE FROM admins WHERE rfid_uid = %s", (uid,))
+        conn.commit()
+        return jsonify({"message": "Sukses terhapus otomatis di semua tabel!"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route("/delete_admin/<int:admin_id>", methods=["POST"])
 @login_required
