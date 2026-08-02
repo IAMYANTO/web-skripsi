@@ -18,7 +18,7 @@ RELOAD_TOKEN = "5faed7aa9ea20314944864b20c180ca4b29e8df349c9f8b9"
 
 tracker_wajah = {"nama_terakhir": "Unknown", "beruntun": 0}
 
-# --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE CLEVER CLOUD ---
+# --- 1. FUNGSI UNTUK MENGHUBUNGKAN KE RANCHER VPS---
 def get_db_connection():
     global CACHED_DB_IP
     
@@ -59,7 +59,7 @@ def load_encodings_from_db():
     known_names.clear()
     known_doors.clear()
     
-    print("[INFO] Mengambil data wajah dan hak akses dari Clever Cloud...")
+    print("[INFO] Mengambil data wajah dan hak akses dari mysql")
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
