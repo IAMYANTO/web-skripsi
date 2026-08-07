@@ -50,7 +50,7 @@ def get_db_connection():
 # Tempat menyimpan memori wajah dan HAK AKSES PINTU sementara di RAM
 known_encodings = []
 known_names = []
-known_doors = [] # 🚨 SUNTIKAN: List baru untuk mengingat akses pintu
+known_doors = [] #  List untuk mengingat akses pintu
 
 # --- 2. FUNGSI UNTUK MENGAMBIL WAJAH & AKSES DARI DATABASE ---
 def load_encodings_from_db():
@@ -64,7 +64,7 @@ def load_encodings_from_db():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # 🚨 SUNTIKAN: Sekarang kita juga menarik kolom 'allowed_door'
+        #  menarik kolom 'allowed_door'
         cursor.execute("SELECT nama, face_encoding, allowed_door FROM users WHERE face_encoding IS NOT NULL")
         users = cursor.fetchall()
 
@@ -102,7 +102,7 @@ def reload_faces():
     if RELOAD_TOKEN:
         token = request.headers.get("X-Reload-Token", "")
         if token != RELOAD_TOKEN:
-            print("⛔ [RELOAD DITOLAK] Token tidak valid.")
+            print("[RELOAD DITOLAK] Token tidak valid.")
             return jsonify({"status": "FORBIDDEN", "message": "Token tidak valid"}), 403
 
     load_encodings_from_db()
@@ -173,7 +173,7 @@ def check_face():
             pintu_izin_user = ""
         
         if pintu_izin_user.lower() != door_id_kamera.lower() and pintu_izin_user.lower() != 'all':
-            print(f"⛔ [PENYUSUP WAJAH] {name} mencoba masuk ke {door_id_kamera} (Izin: {pintu_izin_user})")
+            print(f"[PENYUSUP WAJAH] {name} mencoba masuk ke {door_id_kamera} (Izin: {pintu_izin_user})")
             return jsonify({
                 "result": "UNKNOWN",
                 "name": "Unknown"
@@ -188,7 +188,7 @@ def check_face():
     else:
         tracker_wajah["nama_terakhir"] = "Unknown"
         tracker_wajah["beruntun"] = 0
-        print("👤 [UNKNOWN FACE]")
+        print("[UNKNOWN FACE]")
         return jsonify({
             "result": "UNKNOWN",
             "name": "Unknown"
@@ -232,14 +232,14 @@ def check_rfid():
                     "name": str(user['nama']).title() 
                 })
             else:
-                print(f"⛔ [Akses Ditolak] {user['nama']} salah pintu! Mencoba di {door_request}")
+                print(f"[Akses Ditolak] {user['nama']} salah pintu! Mencoba di {door_request}")
                 return jsonify({"status": "INVALID", "name": "unknown"})
         else:
-            print("❌ [Akses Ditolak] UID Kartu belum terdaftar atau masih PENDING!")
+            print("[Akses Ditolak] UID Kartu belum terdaftar atau masih PENDING!")
             return jsonify({"status": "INVALID", "name": "unknown"})
             
     except Exception as e:
-        print(f"❌ [CRITICAL ERROR DB] {e}")
+        print(f"[CRITICAL ERROR DB] {e}")
         return jsonify({"status": "ERROR", "name": "unknown"}), 500
 
 # ==========================================
@@ -287,7 +287,7 @@ def activate_admin():
 
 if __name__ == "__main__":
     print("====================================================")
-    print("🚀 SERVER AI BERJALAN DI MODE PRODUKSI (WAITRESS) 🚀")
+    print("SERVER AI BERJALAN")
     print("====================================================")
     import sys
     sys.stdout.flush()
